@@ -508,8 +508,12 @@ with head_l:
     st.markdown('<div class="gc-h1">实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
 with head_r:
     if st.button("↻ 立即刷新", use_container_width=True):
+        st.session_state["refreshing"] = True
         st.cache_data.clear()
         st.rerun()
+
+if st.session_state.pop("refreshing", False):
+    st.toast("正在刷新全部榜单，最热游玩可能需要十几秒…", icon="🔄")
 
 # ---------- 跑马灯资讯条 ----------
 

@@ -137,13 +137,13 @@ function updateMeta(data) {
 
 /* ---------- 数据加载 ---------- */
 
-async function load(tab, { silent = false } = {}) {
+async function load(tab, { silent = false, force = false } = {}) {
   if (state.loading[tab]) return;
   state.loading[tab] = true;
   if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml(tab);
   $("#live-dot").style.background = "var(--link)";
   try {
-    const res = await fetch(API[tab]);
+    const res = await fetch(API[tab] + (force ? "?force=1" : ""));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     state.data[tab] = data.items;
@@ -224,9 +224,24 @@ $("#tabs").addEventListener("click", (e) => {
   if (btn) switchTab(btn.dataset.tab);
 });
 
-$("#refresh-btn").addEventListener("click", () => {
+let refreshBusy = false;
+
+$("#refresh-btn").addEventListener("click", async () => {
+  if (refreshBusy) return;
+  refreshBusy = true;
+  const btn = $("#refresh-btn");
+  const label = btn.querySelector("span");
+  const old = label ? label.textContent : btn.textContent;
+  btn.disabled = true;
+  if (label) label.textContent = "刷新中…"; else btn.textContent = "刷新中…";
   state.nextRefresh = 60;
-  load(state.active, { silent: true });
+  await Promise.allSettled([
+    load(state.active, { silent: true, force: true }),
+    updateTicker(),
+  ]);
+  if (label) label.textContent = old; else btn.textContent = old;
+  btn.disabled = false;
+  refreshBusy = false;
 });
 
 $("#retry-btn").addEventListener("click", () => load(state.active));

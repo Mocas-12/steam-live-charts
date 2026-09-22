@@ -131,7 +131,7 @@ def fetch_free_to_keep() -> list[dict]:
     params = {
         "query": "",
         "start": 0,
-        "count": 50,
+        "count": 100,
         "dynamic_data": "",
         "sort_by": "TopSellers",
         "supportedlang": "schinese",

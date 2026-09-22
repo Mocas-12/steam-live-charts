@@ -43,10 +43,10 @@ class TTLCache:
         self.inflight: dict = {}
         self.lock = asyncio.Lock()
 
-    async def get(self, key, factory):
+    async def get(self, key, factory, force=False):
         async with self.lock:
             hit = self.data.get(key)
-            if hit and time.monotonic() - hit[0] < self.ttl:
+            if hit and not force and time.monotonic() - hit[0] < self.ttl:
                 return hit[1]
             if key not in self.inflight:
                 self.inflight[key] = asyncio.ensure_future(factory())
@@ -174,7 +174,7 @@ async def fetch_free_to_keep() -> list[dict]:
     params = {
         "query": "",
         "start": 0,
-        "count": 50,
+        "count": 100,
         "dynamic_data": "",
         "sort_by": "TopSellers",
         "supportedlang": "schinese",
@@ -228,8 +228,8 @@ async def fetch_new_releases() -> list[dict]:
 # ---------- API 路由 ----------
 
 @app.get("/api/top-sellers")
-async def api_top_sellers():
-    items = await search_cache.get("top_sellers", lambda: fetch_search(False))
+async def api_top_sellers(force: bool = False):
+    items = await search_cache.get("top_sellers", lambda: fetch_search(False), force=force)
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
     ]
@@ -237,8 +237,8 @@ async def api_top_sellers():
 
 
 @app.get("/api/specials")
-async def api_specials():
-    items = await search_cache.get("specials", lambda: fetch_search(True))
+async def api_specials(force: bool = False):
+    items = await search_cache.get("specials", lambda: fetch_search(True), force=force)
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
     ]
@@ -246,8 +246,8 @@ async def api_specials():
 
 
 @app.get("/api/free-to-keep")
-async def api_free_to_keep():
-    items = await search_cache.get("free_to_keep", fetch_free_to_keep)
+async def api_free_to_keep(force: bool = False):
+    items = await search_cache.get("free_to_keep", fetch_free_to_keep, force=force)
     items = [
         {**it, "rank": i + 1}
         for i, it in enumerate(items)
@@ -257,8 +257,8 @@ async def api_free_to_keep():
 
 
 @app.get("/api/new-releases")
-async def api_new_releases():
-    items = await new_cache.get("new_releases", fetch_new_releases)
+async def api_new_releases(force: bool = False):
+    items = await new_cache.get("new_releases", fetch_new_releases, force=force)
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
     ]
@@ -266,8 +266,8 @@ async def api_new_releases():
 
 
 @app.get("/api/free-games")
-async def api_free_games():
-    items = await search_cache.get("free_games", lambda: fetch_search(False, free=True))
+async def api_free_games(force: bool = False):
+    items = await search_cache.get("free_games", lambda: fetch_search(False, free=True), force=force)
     items = [
         {**it, "rank": i + 1}
         for i, it in enumerate(items)
@@ -277,8 +277,8 @@ async def api_free_games():
 
 
 @app.get("/api/most-played")
-async def api_most_played():
-    ranks = await charts_cache.get("ranks", fetch_most_played)
+async def api_most_played(force: bool = False):
+    ranks = await charts_cache.get("ranks", fetch_most_played, force=force)
 
     ccu_sem = asyncio.Semaphore(20)
     detail_sem = asyncio.Semaphore(15)
