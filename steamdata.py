@@ -41,7 +41,11 @@ def _clean_price(text: str) -> str | None:
     if "免费" in t or t.lower() == "free":
         return "免费开玩"
     if "¥" in t:
-        t = t.replace(".00", "")
+        try:
+            v = float(t.replace("¥", "").replace(",", ""))
+            t = "¥" + f"{v:.2f}".rstrip("0").rstrip(".")
+        except ValueError:
+            pass
     return t
 
 
@@ -95,7 +99,11 @@ def _clean_price(text: str) -> str | None:
     if "免费" in t or t.lower() == "free":
         return "免费开玩"
     if "¥" in t:
-        t = t.replace(".00", "")
+        try:
+            v = float(t.replace("¥", "").replace(",", ""))
+            t = "¥" + f"{v:.2f}".rstrip("0").rstrip(".")
+        except ValueError:
+            pass
     return t
 
 

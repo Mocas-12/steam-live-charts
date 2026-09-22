@@ -156,7 +156,7 @@ async def fetch_name_from_community(appid: int) -> str | None:
     return name
 
 
-async def fetch_search(specials: bool, free: bool = False, sort: str = "TopSellers") -> list[dict]:
+async def fetch_search(specials: bool = False, free: bool = False, sort: str = "TopSellers") -> list[dict]:
     params = {
         "query": "",
         "start": 0,
