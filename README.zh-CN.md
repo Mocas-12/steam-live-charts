@@ -35,13 +35,14 @@
 
 ## ✨ 功能特性
 
-- 🏆 **三大实时榜单**：热销商品（销量 Top 50）· 最热游玩（Top 100）· 特惠专区（热销折扣游戏 Top 50）
+- 🏆 **五大实时榜单**：热销商品（Top 50）· 最热游玩（Top 100）· 特惠专区（Top 50）· 新品上架（Top 30）· 免费游戏（Top 50）
+- 🕹️ **Neon Arena 主题**：自成一体的电竞记分板视觉——金银铜金属排位角标、霓虹辉光描边、切角卡片、等宽数字字体，刻意与 Steam 官方界面区分开
 - 👥 **真实时在线人数**：每款游戏逐个查询 Steam 官方统计接口，最热榜按**当前在线人数**实时重排，附今日峰值与周名次变化（▲ 上升 / ▼ 下降 / 新上榜）
-- 💰 **人民币价格 + Steam 式折扣标签**：绿色折扣块、划线原价，和商店一致的视觉
+- 💰 **人民币价格 + 折扣标签**：霓虹绿折扣块、划线原价
 - 🀄 **简体中文**：游戏名、类型标签、中文封面（`cc=cn&l=schinese`）
 - 🔄 **60 秒自动刷新**：FastAPI 版倒计时轮询、Streamlit 版 `st.fragment` 原地刷新，都不会打断你正在看的 tab
 - 🧯 **多级兜底**：已下架/区域锁游戏（如 Rocket League）从 Steam 社区页取名字；上游接口抖动时回退过期缓存而不是报错
-- 🖥️ **一套数据层、两种前端**：手工复刻 Steam 视觉的 FastAPI + 原生 JS 站点，和共享同一份 `steamdata.py` 的 Streamlit Cloud 版
+- 🖥️ **一套数据层、两种前端**：手工打造的高速 FastAPI + 原生 JS 站点，和共享同一份 `steamdata.py` 的 Streamlit Cloud 版
 
 ## 🧠 工作原理
 
@@ -55,7 +56,7 @@ flowchart LR
     E --> F
 ```
 
-1. **抓取**：热销/特惠榜来自商店搜索接口（`sort_by=TopSellers`，特惠额外加 `specials=1`）；最热榜骨架来自 `GetMostPlayedGames`，再逐款并发查询实时在线人数（`GetNumberOfCurrentPlayers`，并发 20）
+1. **抓取**：热销/特惠/免费榜来自商店搜索接口（`sort_by=TopSellers`，特惠加 `specials=1`，免费榜加 `maxprice=free` 并过滤掉混入的免费试玩付费游戏）；新品榜来自商店精选 `featuredcategories`；最热榜骨架来自 `GetMostPlayedGames`，再逐款并发查询实时在线人数（`GetNumberOfCurrentPlayers`，并发 20）
 2. **重排**：官方榜是每日快照，与实时在线有出入——最热榜按当前在线人数重新排序，价格/名字/类型来自 `appdetails`（10 分钟缓存）
 3. **兜底**：无商店页的游戏从 Steam 社区页标题取名字；上游失败时返回过期缓存兜底
 4. **渲染**：FastAPI 版托管手写 Steam 风格站点（倒计时轮询）；Streamlit 版用 `st.markdown` + `st.fragment(run_every="60s")` 注入同一套设计语言

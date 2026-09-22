@@ -35,13 +35,14 @@
 
 ## ✨ Features
 
-- 🏆 **Three live leaderboards**: Top Sellers (sales Top 50) · Most Played (Top 100) · Specials (hot discounted titles Top 50)
+- 🏆 **Five live leaderboards**: Top Sellers (Top 50) · Most Played (Top 100) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50)
+- 🕹️ **Neon Arena theme**: an esports-scoreboard look of its own — metal rank badges (gold / silver / bronze) for the top 3, neon glow accents, beveled cards and monospace stat digits; deliberately *not* a Steam clone
 - 👥 **Real-time player counts**: every game is queried individually against Steam's official stats API — the Most Played board is re-ranked by *current* concurrent players and shows today's peak plus weekly rank movement (▲ up / ▼ down / NEW)
-- 💰 **CNY prices & Steam-style discount tags**: authentic green discount blocks with struck-through original prices
+- 💰 **CNY prices & deal tags**: discount pills with struck-through original prices
 - 🀄 **Simplified Chinese**: localized titles, genres and cover art (`cc=cn&l=schinese`)
 - 🔄 **Auto refresh every 60s**: countdown + manual refresh on the FastAPI site; `st.fragment` in-place rerun on Streamlit — neither loses your current tab
 - 🧯 **Resilient fallbacks**: delisted / region-locked games (e.g. Rocket League) get their names from Steam Community pages; stale cache is served when upstream hiccups
-- 🖥️ **Two frontends, one data layer**: a pixel-crafted FastAPI + vanilla JS site (the original Steam look) and a Streamlit Cloud replica sharing the same `steamdata.py`
+- 🖥️ **Two frontends, one data layer**: a hand-crafted FastAPI + vanilla JS site and a Streamlit Cloud replica sharing the same `steamdata.py`
 
 ## 🧠 How It Works
 
@@ -55,7 +56,7 @@ flowchart LR
     E --> F
 ```
 
-1. **Fetch**: the Top Sellers / Specials boards come from the store search endpoint sorted by `TopSellers` (with `specials=1` for discounts); the Most Played skeleton comes from `GetMostPlayedGames`, then each game's live player count is fetched individually (`GetNumberOfCurrentPlayers`, concurrency 20)
+1. **Fetch**: the Top Sellers / Specials / Free Games boards come from the store search endpoint sorted by `TopSellers` (with `specials=1` for discounts and `maxprice=free` — filtered to truly-free titles — for the free board); New Releases come from the curated `featuredcategories` feed. The Most Played skeleton comes from `GetMostPlayedGames`, then each game's live player count is fetched individually (`GetNumberOfCurrentPlayers`, concurrency 20)
 2. **Re-rank**: the official chart is a daily rollup, so the Most Played board is sorted by *current* players to stay honest to "real-time"; prices/names/genres come from `appdetails` (10-min cache)
 3. **Fallbacks**: games whose store entry is gone (delisted / region-locked) fall back to the Steam Community hub title for their name; upstream failures serve stale cache instead of an error
 4. **Render**: the FastAPI app serves a hand-written Steam-styled site with countdown polling; the Streamlit app injects the same design language over `st.markdown` + `st.fragment(run_every="60s")`

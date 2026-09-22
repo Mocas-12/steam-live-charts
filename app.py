@@ -2,11 +2,13 @@
 
 共享数据逻辑在 steamdata.py（同步版，Streamlit 端 streamlit_app.py 复用同一套解析），
 本文件只负责异步抓取 + TTL 缓存 + 静态前端托管：
+- 热销商品:  store search sort_by=TopSellers (50 条, 含价格折扣)
+- 特惠专区:  同上 + specials=1 (50 条折扣游戏按畅销排序)
+- 新品上架:  featuredcategories new_releases (精选 30 条, 含价格/封面)
+- 免费游戏:  同热销 + maxprice=free (过滤免费试玩, 50 条按畅销排序)
 - 最热游玩:  ISteamChartsService/GetMostPlayedGames (Top100, 峰值榜)
              + ISteamUserStats/GetNumberOfCurrentPlayers (逐款实时在线, 60s 缓存)
              + store appdetails (游戏名/价格/类型, 10min 缓存)
-- 热销商品:  store search sort_by=TopSellers (50 条, 含价格折扣)
-- 特惠专区:  同上 + specials=1 (50 条折扣游戏按畅销排序)
 """
 
 import asyncio
@@ -24,6 +26,7 @@ from steamdata import (
     STORE_URL,
     STEAM_API,
     STEAM_STORE,
+    _clean_price,
     parse_search_rows,
     price_from_overview,
 )
@@ -73,6 +76,7 @@ ccu_cache = TTLCache(REFRESH_SECONDS)
 detail_cache = TTLCache(600)
 search_cache = TTLCache(120)
 name_cache = TTLCache(24 * 3600)
+new_cache = TTLCache(600)
 
 app = FastAPI(title="Steam 实时游戏榜单")
 
@@ -129,7 +133,7 @@ async def fetch_name_from_community(appid: int) -> str | None:
     return name
 
 
-async def fetch_search(specials: bool) -> list[dict]:
+async def fetch_search(specials: bool, free: bool = False) -> list[dict]:
     params = {
         "query": "",
         "start": 0,
@@ -144,9 +148,45 @@ async def fetch_search(specials: bool) -> list[dict]:
     }
     if specials:
         params["specials"] = 1
+    if free:
+        params["maxprice"] = "free"
     r = await client.get(f"{STEAM_STORE}/search/results/", params=params)
     r.raise_for_status()
     return parse_search_rows(r.json()["results_html"])
+
+
+async def fetch_new_releases() -> list[dict]:
+    """新品上架：商店精选每周新品（featuredcategories，30 条，含价格/封面）。"""
+    r = await client.get(f"{STEAM_STORE}/api/featuredcategories/", params={"cc": CC, "l": LANG})
+    r.raise_for_status()
+    items = r.json().get("new_releases", {}).get("items", [])
+    out = []
+    for it in items:
+        try:
+            aid = int(it["id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        pct = it.get("discount_percent") or 0
+        final_cents = it.get("final_price") or 0
+        if final_cents == 0:
+            price = {"free": True, "final": "免费开玩", "original": None, "pct": None}
+        else:
+            price = {
+                "free": False,
+                "final": _clean_price(f"¥{final_cents / 100}"),
+                "original": _clean_price(f"¥{it['original_price'] / 100}") if pct else None,
+                "pct": -pct if pct else None,
+            }
+        out.append(
+            {
+                "appid": aid,
+                "name": str(it.get("name", "")).strip(),
+                "image": it.get("header_image") or HEADER_IMG.format(aid),
+                "url": STORE_URL.format(aid),
+                "price": price,
+            }
+        )
+    return out
 
 
 # ---------- API 路由 ----------
@@ -165,6 +205,26 @@ async def api_specials():
     items = await search_cache.get("specials", lambda: fetch_search(True))
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
+    ]
+    return {"meta": meta(), "items": items}
+
+
+@app.get("/api/new-releases")
+async def api_new_releases():
+    items = await new_cache.get("new_releases", fetch_new_releases)
+    items = [
+        {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
+    ]
+    return {"meta": meta(), "items": items}
+
+
+@app.get("/api/free-games")
+async def api_free_games():
+    items = await search_cache.get("free_games", lambda: fetch_search(False, free=True))
+    items = [
+        {**it, "rank": i + 1}
+        for i, it in enumerate(items)
+        if it["price"]["final"] and it["price"]["free"]  # 过滤混入的免费试玩付费游戏
     ]
     return {"meta": meta(), "items": items}
 

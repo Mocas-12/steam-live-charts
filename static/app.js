@@ -4,6 +4,8 @@ const API = {
   "top-sellers": "/api/top-sellers",
   "most-played": "/api/most-played",
   "specials": "/api/specials",
+  "new-releases": "/api/new-releases",
+  "free-games": "/api/free-games",
 };
 
 const state = {

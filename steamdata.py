@@ -100,7 +100,7 @@ def parse_search_rows(results_html: str) -> list[dict]:
 
 # ---------- 单项抓取 ----------
 
-def fetch_search(specials: bool) -> list[dict]:
+def fetch_search(specials: bool, free: bool = False) -> list[dict]:
     params = {
         "query": "",
         "start": 0,
@@ -115,9 +115,45 @@ def fetch_search(specials: bool) -> list[dict]:
     }
     if specials:
         params["specials"] = 1
+    if free:
+        params["maxprice"] = "free"
     r = get_client().get(f"{STEAM_STORE}/search/results/", params=params)
     r.raise_for_status()
     return parse_search_rows(r.json()["results_html"])
+
+
+def fetch_new_releases() -> list[dict]:
+    """新品上架：商店精选每周新品（featuredcategories，30 条，含价格/封面）。"""
+    r = get_client().get(f"{STEAM_STORE}/api/featuredcategories/", params={"cc": CC, "l": LANG})
+    r.raise_for_status()
+    items = r.json().get("new_releases", {}).get("items", [])
+    out = []
+    for it in items:
+        try:
+            aid = int(it["id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        pct = it.get("discount_percent") or 0
+        final_cents = it.get("final_price") or 0
+        if final_cents == 0:
+            price = {"free": True, "final": "免费开玩", "original": None, "pct": None}
+        else:
+            price = {
+                "free": False,
+                "final": _clean_price(f"¥{final_cents / 100}"),
+                "original": _clean_price(f"¥{it['original_price'] / 100}") if pct else None,
+                "pct": -pct if pct else None,
+            }
+        out.append(
+            {
+                "appid": aid,
+                "name": str(it.get("name", "")).strip(),
+                "image": it.get("header_image") or HEADER_IMG.format(aid),
+                "url": STORE_URL.format(aid),
+                "price": price,
+            }
+        )
+    return out
 
 
 def fetch_most_played() -> list[dict]:
