@@ -13,7 +13,7 @@ import streamlit as st
 import steamdata
 
 st.set_page_config(
-    page_title="GAMECHARTS · 实时游戏榜单",
+    page_title="GAMECHARTS · Steam 实时游戏榜单",
     page_icon="🎮",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -586,7 +586,7 @@ def updated_line():
 head_l, head_r = st.columns([4, 1], vertical_alignment="center")
 with head_l:
     st.markdown('<div class="gc-overline">Realtime Arena · 每 60 秒自动刷新</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gc-h1">实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
+    st.markdown('<div class="gc-h1">Steam 实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
 with head_r:
     if st.button("↻ 立即刷新", use_container_width=True):
         st.session_state["refreshing"] = True
