@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam 实时游戏榜单</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%2366c0f4'/><circle cx='21' cy='11' r='5' fill='%23171a21'/><circle cx='10' cy='21' r='4' fill='%23171a21'/></svg>">
+<link rel="stylesheet" href="steam.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="wrap topnav-inner">
+    <a class="logo" href="/">STEAM<sup>®</sup><span class="logo-sub">实时榜单</span></a>
+    <div class="nav-links">
+      <a href="https://store.steampowered.com/" target="_blank">商店</a>
+      <a href="https://steamcommunity.com/" target="_blank">社区</a>
+      <a href="https://store.steampowered.com/about/" target="_blank">关于</a>
+      <a href="https://help.steampowered.com/" target="_blank">客服</a>
+    </div>
+    <a class="install-btn" href="https://store.steampowered.com/about/" target="_blank">安装 Steam</a>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="head-top">
+      <h1>实时游戏榜单</h1>
+      <div class="head-meta">
+        <span class="live-dot" id="live-dot"></span>
+        <span id="updated-at">正在加载…</span>
+        <span class="sep">·</span>
+        <span id="countdown">--s 后自动刷新</span>
+        <button class="refresh-btn" id="refresh-btn" title="立即刷新">&#8635; 刷新</button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="top-sellers">热销商品</button>
+      <button class="tab" data-tab="most-played">最热游玩</button>
+      <button class="tab" data-tab="specials">特惠专区</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="error-banner" id="error-banner" hidden>
+    <span id="error-text">数据加载失败</span>
+    <button id="retry-btn">重试</button>
+  </div>
+
+  <section class="panel" id="panel-top-sellers">
+    <div class="section-title">热门畅销商品 <span class="section-sub">TOP 50 · 按销量排序</span></div>
+    <div class="grid" id="list-top-sellers"></div>
+  </section>
+
+  <section class="panel" id="panel-most-played" hidden>
+    <div class="section-title">最热游玩游戏 <span class="section-sub">TOP 100 · 按当前在线人数排序</span></div>
+    <div class="rows-head">
+      <span class="c-rank">#</span><span class="c-game">游戏</span>
+      <span class="c-players">当前在线</span><span class="c-peak">今日峰值</span><span class="c-delta">周变化</span>
+    </div>
+    <div class="rows" id="list-most-played"></div>
+  </section>
+
+  <section class="panel" id="panel-specials" hidden>
+    <div class="section-title">特惠专区 <span class="section-sub">TOP 50 · 热销折扣游戏</span></div>
+    <div class="grid" id="list-specials"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <p>本页面为非官方第三方工具，与 Valve Corporation 无从属关系。榜单数据实时来自 Steam 官方公开接口，游戏名称、图片与价格版权归 Valve 及相应开发商所有。</p>
+    <p class="footer-links">
+      <a href="https://store.steampowered.com/charts/topselling" target="_blank">Steam 热销榜</a> ·
+      <a href="https://store.steampowered.com/charts/mostplayed" target="_blank">Steam 最热游玩榜</a>
+    </p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

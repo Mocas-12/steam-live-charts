@@ -1,0 +1,239 @@
+/* Steam 实时游戏榜单 —— 仿 Steam 商店视觉 */
+
+@font-face {
+  font-family: "Motiva Sans";
+  src: url("https://store.cloudflare.steamstatic.com/public/shared/fonts/MotivaSans-Light.woff") format("woff");
+  font-weight: 300; font-display: swap;
+}
+@font-face {
+  font-family: "Motiva Sans";
+  src: url("https://store.cloudflare.steamstatic.com/public/shared/fonts/MotivaSans-Regular.woff") format("woff");
+  font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "Motiva Sans";
+  src: url("https://store.cloudflare.steamstatic.com/public/shared/fonts/MotivaSans-Bold.woff") format("woff");
+  font-weight: 700; font-display: swap;
+}
+
+:root {
+  --nav: #171a21;
+  --bg: #1b2838;
+  --panel: #16202d;
+  --hover: rgba(103, 193, 245, 0.08);
+  --text: #c7d5e0;
+  --bright: #ffffff;
+  --muted: #8f98a0;
+  --dim: #55677d;
+  --link: #66c0f4;
+  --green-bg: #4c6b22;
+  --green-pct: #beee11;
+  --green-price: #d2e885;
+  --up: #75b022;
+  --down: #d0483e;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background:
+    radial-gradient(1100px 380px at 50% -120px, rgba(42, 71, 94, 0.55), transparent 70%),
+    linear-gradient(180deg, #14344b 0, var(--bg) 360px);
+  background-attachment: scroll;
+  color: var(--text);
+  font-family: "Motiva Sans", "Segoe UI", Arial, "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+
+/* ---------- 顶栏 ---------- */
+
+.topnav { background: var(--nav); height: 66px; box-shadow: 0 1px 0 rgba(0,0,0,.4); }
+.topnav-inner { display: flex; align-items: center; gap: 28px; height: 100%; }
+
+.logo {
+  color: var(--bright); text-decoration: none; font-size: 26px; font-weight: 700;
+  letter-spacing: 1.5px; display: flex; align-items: baseline; gap: 10px;
+}
+.logo sup { font-size: 10px; font-weight: 400; color: var(--muted); }
+.logo-sub { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--link); }
+
+.nav-links { display: flex; gap: 4px; margin-right: auto; }
+.nav-links a {
+  color: #b8b6b4; text-decoration: none; font-size: 14px; font-weight: 700;
+  padding: 8px 12px; border-radius: 3px; text-transform: uppercase; letter-spacing: .5px;
+}
+.nav-links a:hover { color: var(--bright); background: rgba(255,255,255,.06); }
+
+.install-btn {
+  color: #d2efa9; text-decoration: none; font-size: 12px; font-weight: 700;
+  padding: 7px 14px; border-radius: 2px; white-space: nowrap;
+  background: linear-gradient(to right, #75b022 5%, #588a1b 95%);
+}
+.install-btn:hover { background: linear-gradient(to right, #8ed629 5%, #6aa621 95%); color: #fff; }
+
+/* ---------- 页头 ---------- */
+
+.page-head { padding: 34px 0 0; }
+.head-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+h1 { color: var(--bright); font-size: 28px; font-weight: 400; letter-spacing: .5px; }
+
+.head-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; padding-bottom: 4px; }
+.head-meta .sep { opacity: .5; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--up);
+  box-shadow: 0 0 6px var(--up); animation: pulse 2s infinite;
+}
+@keyframes pulse { 50% { opacity: .4; } }
+
+.refresh-btn {
+  background: rgba(103,193,245,.1); color: var(--link); border: 1px solid rgba(103,193,245,.25);
+  border-radius: 2px; font-size: 12px; padding: 4px 10px; cursor: pointer; margin-left: 4px;
+  font-family: inherit;
+}
+.refresh-btn:hover { background: rgba(103,193,245,.2); color: var(--bright); }
+
+/* ---------- Tab ---------- */
+
+.tabs { display: flex; gap: 3px; margin-top: 22px; }
+.tab {
+  background: transparent; border: none; color: var(--muted); font-size: 15px;
+  padding: 11px 24px; cursor: pointer; border-radius: 3px 3px 0 0; font-family: inherit;
+}
+.tab:hover { color: var(--bright); background: rgba(255,255,255,.05); }
+.tab.active { background: var(--panel); color: var(--bright); font-weight: 700; }
+
+/* ---------- 面板 ---------- */
+
+.panel {
+  background: var(--panel); border-radius: 0 4px 4px 4px;
+  padding: 4px 0 18px; min-height: 300px; margin-bottom: 40px;
+  box-shadow: 0 0 12px rgba(0,0,0,.35);
+}
+
+.section-title {
+  color: var(--bright); font-size: 16px; font-weight: 400; padding: 14px 18px 12px;
+}
+.section-sub { color: var(--muted); font-size: 12px; margin-left: 10px; }
+
+/* ---------- 卡片网格（热销 / 特惠） ---------- */
+
+.grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px;
+  padding: 0 18px;
+}
+.card {
+  position: relative; background: rgba(0,0,0,.25); border-radius: 3px; overflow: hidden;
+  cursor: pointer; text-decoration: none; display: block;
+  transition: background .18s, transform .18s;
+}
+.card:hover { background: var(--hover); transform: translateY(-2px); }
+.card img { width: 100%; aspect-ratio: 460/215; display: block; object-fit: cover; }
+.card .name {
+  display: block; color: var(--bright); font-size: 13px; line-height: 1.35;
+  padding: 8px 10px 2px; height: 36px; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.card:hover .name { color: var(--link); }
+.card .price-row { display: flex; align-items: center; gap: 7px; padding: 7px 10px 11px; min-height: 34px; }
+
+.rank-chip {
+  position: absolute; top: 7px; left: 7px; background: rgba(0,0,0,.72); color: #fff;
+  font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 2px; z-index: 1;
+}
+
+/* 折扣标签（Steam 绿） */
+.price-tag { display: inline-flex; background: var(--green-bg); border-radius: 2px; }
+.price-tag .pct { color: var(--green-pct); font-weight: 700; font-size: 13px; padding: 3px 6px; }
+.price-tag .final { color: var(--green-price); font-size: 13px; padding: 3px 7px; }
+.price-plain { color: var(--bright); font-size: 13px; }
+.strike { color: var(--dim); text-decoration: line-through; font-size: 12px; }
+
+/* ---------- 最热游玩行 ---------- */
+
+.rows-head, .row {
+  display: grid;
+  grid-template-columns: 44px 150px minmax(0,1fr) 110px 110px 70px;
+  gap: 14px; align-items: center; padding: 7px 18px;
+}
+.rows-head {
+  color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+  border-bottom: 1px solid rgba(255,255,255,.08); padding: 0 18px 8px;
+  margin: 0 0 2px 0;
+}
+.rows-head .c-players, .rows-head .c-peak { text-align: right; }
+.rows-head .c-delta { text-align: center; }
+
+.row { border-bottom: 1px solid rgba(255,255,255,.05); text-decoration: none; transition: background .15s; }
+.row:hover { background: var(--hover); }
+
+.row .rank { color: var(--dim); font-size: 17px; font-weight: 700; text-align: center; }
+.row img { width: 150px; aspect-ratio: 460/215; object-fit: cover; border-radius: 2px; display: block; }
+.row .gname { color: var(--bright); font-size: 14.5px; line-height: 1.35; }
+.row:hover .gname { color: var(--link); }
+.row .genre-line { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+.row .genre-line .mini-price { color: var(--green-price); margin-left: 8px; }
+.row .genre-line .mini-price.has-pct { color: var(--green-pct); }
+.row .genre-line .free { color: var(--green-price); margin-left: 8px; }
+
+.pnum { color: var(--bright); font-size: 18px; font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.peak-num { color: var(--muted); font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.delta { text-align: center; font-size: 13px; font-weight: 700; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--down); }
+.delta.same { color: var(--dim); font-weight: 400; }
+.delta.new {
+  display: inline-block; background: var(--green-bg); color: var(--green-pct);
+  font-size: 10px; padding: 2px 6px; border-radius: 2px;
+}
+
+/* ---------- 骨架屏 / 错误 ---------- */
+
+@keyframes shimmer { 0% { opacity: .45; } 50% { opacity: .9; } 100% { opacity: .45; } }
+.skel-row {
+  display: grid; grid-template-columns: 44px 150px 1fr 110px 110px 70px;
+  gap: 14px; align-items: center; padding: 9px 18px; border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.skel-row div { height: 16px; border-radius: 2px; background: rgba(255,255,255,.06); animation: shimmer 1.4s infinite; }
+.skel-row .s-img { height: 70px; }
+.skel-card { border-radius: 3px; overflow: hidden; }
+.skel-card div { background: rgba(255,255,255,.06); animation: shimmer 1.4s infinite; }
+.skel-card .s-img { aspect-ratio: 460/215; }
+.skel-card .s-line { height: 14px; margin: 10px; border-radius: 2px; }
+
+.error-banner[hidden] { display: none; }
+
+.error-banner {
+  background: rgba(208, 72, 62, 0.12); border: 1px solid rgba(208, 72, 62, 0.4);
+  color: #e8a09a; border-radius: 3px; padding: 12px 16px; margin-bottom: 16px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.error-banner button {
+  background: rgba(208,72,62,.25); border: 1px solid rgba(208,72,62,.5); color: #f0c0bb;
+  padding: 5px 14px; border-radius: 2px; cursor: pointer; font-family: inherit;
+}
+.error-banner button:hover { background: rgba(208,72,62,.4); color: #fff; }
+
+/* ---------- 页脚 ---------- */
+
+footer { border-top: 1px solid rgba(255,255,255,.08); background: rgba(23,26,33,.5); padding: 22px 0 34px; }
+.footer-inner { color: #5c6672; font-size: 12px; line-height: 1.7; }
+.footer-links a { color: var(--dim); text-decoration: none; }
+.footer-links a:hover { color: var(--link); }
+
+/* ---------- 响应式 ---------- */
+
+@media (max-width: 860px) {
+  .rows-head { display: none; }
+  .row, .skel-row {
+    grid-template-columns: 34px 110px minmax(0,1fr) auto;
+    gap: 10px;
+  }
+  .row img { width: 110px; }
+  .row .peak-col, .row .delta-col { display: none; }
+  .pnum { font-size: 15px; }
+  .nav-links { display: none; }
+}
