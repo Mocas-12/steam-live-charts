@@ -265,7 +265,9 @@ $("#refresh-btn").addEventListener("click", async () => {
 
 $("#retry-btn").addEventListener("click", () => load(state.active));
 
-switchTab("most-played");
-load("most-played");
-updateTicker();
+// 支持 #most-played 等 hash 深链直达指定榜单
+const h = location.hash.slice(1);
+const initial = API[h] ? h : "most-played";
+switchTab(initial);
+load(initial);
 updateTicker();
