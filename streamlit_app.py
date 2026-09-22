@@ -547,7 +547,7 @@ def rows_html(items, title, sub, stats=False):
     if stats:
         head = ('<div class="gc-thead"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-                '<span class="ctr">周变化</span></div>')
+                '<span class="ctr">周变化</span><span class="r">价格</span></div>')
     else:
         head = ('<div class="gc-thead simple"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">价格</span></div>')
