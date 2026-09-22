@@ -1,6 +1,7 @@
-"""Steam 实时游戏榜单 —— FastAPI 后端。
+"""Steam 实时游戏榜单 —— FastAPI 后端（本地/自托管用）。
 
-数据全部来自 Steam 官方公开接口，进程内 TTL 缓存限流：
+共享数据逻辑在 steamdata.py（同步版，Streamlit 端 streamlit_app.py 复用同一套解析），
+本文件只负责异步抓取 + TTL 缓存 + 静态前端托管：
 - 最热游玩:  ISteamChartsService/GetMostPlayedGames (Top100, 峰值榜)
              + ISteamUserStats/GetNumberOfCurrentPlayers (逐款实时在线, 60s 缓存)
              + store appdetails (游戏名/价格/类型, 10min 缓存)
@@ -9,7 +10,6 @@
 """
 
 import asyncio
-import html as htmllib
 import re
 import time
 
@@ -17,11 +17,16 @@ import httpx
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-STEAM_API = "https://api.steampowered.com"
-STEAM_STORE = "https://store.steampowered.com"
-CC, LANG = "cn", "schinese"
-HEADER_IMG = "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/header.jpg"
-STORE_URL = "https://store.steampowered.com/app/{}/"
+from steamdata import (
+    CC,
+    HEADER_IMG,
+    LANG,
+    STORE_URL,
+    STEAM_API,
+    STEAM_STORE,
+    parse_search_rows,
+    price_from_overview,
+)
 
 REFRESH_SECONDS = 60  # 前端轮询节奏，与最热榜缓存一致
 
@@ -76,7 +81,7 @@ def meta() -> dict:
     return {"updated_at": int(time.time()), "ttl": REFRESH_SECONDS}
 
 
-# ---------- 基础数据源 ----------
+# ---------- 基础数据源（异步版） ----------
 
 async def fetch_most_played() -> list[dict]:
     r = await client.get(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
@@ -107,22 +112,7 @@ async def fetch_detail(appid: int) -> dict | None:
             g["description"] for g in data.get("genres", [])
             if g["description"] not in ("免费开玩", "Free to Play")
         ][:3],
-        "price": _price_from_overview(data.get("price_overview"), data.get("is_free")),
-    }
-
-
-def _price_from_overview(po: dict | None, is_free: bool) -> dict | None:
-    if is_free:
-        return {"free": True, "final": "免费开玩", "original": None, "pct": None}
-    if not po:
-        return None
-    pct = po.get("discount_percent") or 0
-    final = _clean_price(po.get("final_formatted") or "") or _clean_price(f"¥{po.get('final', 0) / 100}")
-    return {
-        "free": False,
-        "final": final,
-        "original": _clean_price(f"¥{po['initial'] / 100}") if pct else None,
-        "pct": -pct if pct else None,
+        "price": price_from_overview(data.get("price_overview"), data.get("is_free")),
     }
 
 
@@ -133,61 +123,10 @@ async def fetch_name_from_community(appid: int) -> str | None:
     m = re.search(r"<title>([^<]+)</title>", r.text)
     if not m:
         return None
-    title = m.group(1).strip()
-    name = title.split("::")[-1].strip()
+    name = m.group(1).strip().split("::")[-1].strip()
     if name in ("Steam 社区", "Steam Community", ""):  # 无独立社区页的游戏
         return None
     return name
-
-
-# ---------- 搜索页解析（热销 / 特惠） ----------
-
-ROW_RE = re.compile(
-    r'<a href="https://store\.steampowered\.com/app/(\d+)/[^"]*"[^>]*?'
-    r'class="search_result_row[^"]*"(.*?)</a>',
-    re.S,
-)
-
-
-def _clean_price(text: str) -> str | None:
-    t = htmllib.unescape(text).strip().replace(" ", "")
-    if not t:
-        return None
-    if "免费" in t or t.lower() == "free":
-        return "免费开玩"
-    if "¥" in t:
-        t = t.replace(".00", "")
-    return t
-
-
-def parse_search_rows(results_html: str) -> list[dict]:
-    items = []
-    for m in ROW_RE.finditer(results_html):
-        aid = int(m.group(1))
-        block = m.group(2)
-        title = re.search(r'<span class="title">([^<]+)</span>', block)
-        if not title:
-            continue
-        pct = re.search(r'class="discount_pct">\s*(-?\d+)%', block)
-        orig = re.search(r'class="discount_original_price">\s*([^<]+?)\s*<', block)
-        fin = re.search(r'class="discount_final_price[^"]*">\s*([^<]+?)\s*<', block)
-        img = re.search(r'<img[^>]+src="([^"]+capsule[^"]+?)"', block)
-        final = _clean_price(fin.group(1)) if fin else None
-        items.append(
-            {
-                "appid": aid,
-                "name": htmllib.unescape(title.group(1)).strip(),
-                "image": img.group(1) if img else HEADER_IMG.format(aid),
-                "url": STORE_URL.format(aid),
-                "price": {
-                    "free": final == "免费开玩",
-                    "final": final,
-                    "original": _clean_price(orig.group(1)) if orig else None,
-                    "pct": int(pct.group(1)) if pct else None,
-                },
-            }
-        )
-    return items
 
 
 async def fetch_search(specials: bool) -> list[dict]:

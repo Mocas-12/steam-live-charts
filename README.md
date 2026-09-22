@@ -16,6 +16,10 @@
 
 ## 运行
 
+两个前端共用同一套数据层 `steamdata.py`：
+
+**本地 FastAPI 版**（原版 Steam 视觉，前端 60 秒倒计时自动轮询）：
+
 ```bash
 pip install -r requirements.txt
 python -m uvicorn app:app --host 127.0.0.1 --port 8123
@@ -24,9 +28,18 @@ python -m uvicorn app:app --host 127.0.0.1 --port 8123
 
 打开 http://127.0.0.1:8123/ 即可。
 
+**Streamlit 版**（部署 Streamlit Cloud 用，界面为 Streamlit 复刻版）：
+
+```bash
+streamlit run streamlit_app.py
+# 云端：Streamlit Cloud 仓库设置里 Main file path 选 streamlit_app.py
+```
+
+榜单数据由 `st.cache_data`（60/120 秒 TTL）+ `st.fragment(run_every="60s")` 自动刷新。
+
 ## 实现说明
 
-- **后端** `app.py`：FastAPI + httpx 异步并发拉取，进程内 TTL 缓存 + 在途请求合并（同一 key 的并发请求只打一次上游），上游失败时回退过期数据。
+- **后端** `app.py`（FastAPI 异步版）/ `steamdata.py`（同步数据层，两端共用）：TTL 缓存 + 在途请求合并 / `st.cache_data`（同一 key 的并发请求只打一次上游），上游失败时回退过期数据。
 - **限流**：最热榜首载需 100 次在线人数查询（并发 20）+ 100 次 appdetails（并发 15，10 分钟缓存），稳态刷新只查在线人数。
 - **名字兜底**：已下架/区域锁定的游戏（如 Rocket League）appdetails 返回失败，改从 Steam 社区页标题取名字（24h 缓存）。
 - **封面图**：新游戏旧版 CDN 路径已失效，改用搜索行/appdetails 自带的哈希化 `store_item_assets` 地址，加载失败时隐藏图片只留排名角标。
