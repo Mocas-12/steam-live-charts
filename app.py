@@ -75,7 +75,7 @@ client = httpx.AsyncClient(
 
 charts_cache = TTLCache(REFRESH_SECONDS)
 ccu_cache = TTLCache(REFRESH_SECONDS)
-detail_cache = TTLCache(600)
+detail_cache = TTLCache(1800)
 search_cache = TTLCache(120)
 name_cache = TTLCache(24 * 3600)
 new_cache = TTLCache(600)
@@ -124,12 +124,15 @@ async def fetch_ccu(appid: int) -> int:
     return r.json()["response"].get("player_count", 0)
 
 
-async def fetch_detail(appid: int) -> dict | None:
+async def fetch_detail(appid: int, _retry: bool = True) -> dict | None:
     r = await client.get(
         f"{STEAM_STORE}/api/appdetails", params={"appids": appid, "cc": CC, "l": LANG}
     )
     r.raise_for_status()
     data = r.json().get(str(appid), {}).get("data")
+    if not data and _retry:
+        await asyncio.sleep(0.8)
+        return await fetch_detail(appid, _retry=False)
     if not data:
         return None
     return {
