@@ -1,19 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
   <defs>
-    <linearGradient id="gbg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f6e3a0"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1f27"/>
+      <stop offset="1" stop-color="#0d0f13"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4dc95"/>
       <stop offset="1" stop-color="#d9a93f"/>
     </linearGradient>
   </defs>
-  <rect width="96" height="96" rx="22" fill="url(#gbg)"/>
-  <rect x="1.5" y="1.5" width="93" height="93" rx="20.5" fill="none" stroke="#8a6d1f" stroke-opacity="0.4" stroke-width="1.5"/>
-  <!-- 排位领奖台（深色剪影） -->
-  <rect x="19" y="50" width="15" height="26" rx="3.5" fill="#14171d" opacity="0.78"/>
-  <rect x="40.5" y="34" width="15" height="42" rx="3.5" fill="#14171d"/>
-  <rect x="62" y="57" width="15" height="19" rx="3.5" fill="#14171d" opacity="0.55"/>
-  <!-- 冠军星 -->
-  <path d="M48 15 l2.4 6.2 6.2 2.4 -6.2 2.4 -2.4 6.2 -2.4 -6.2 -6.2 -2.4 6.2 -2.4 Z" fill="#14171d"/>
+  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="93" height="93" rx="20.5" fill="none" stroke="#e8c268" stroke-opacity="0.28" stroke-width="1.5"/>
+  <!-- 排位领奖台 -->
+  <rect x="19" y="50" width="15" height="26" rx="3.5" fill="#8f9cb5"/>
+  <rect x="40.5" y="34" width="15" height="42" rx="3.5" fill="url(#gold)"/>
+  <rect x="62" y="57" width="15" height="19" rx="3.5" fill="#b57b52"/>
+  <!-- 金榜之星 -->
+  <path d="M48 17 l2.4 6.2 6.2 2.4 -6.2 2.4 -2.4 6.2 -2.4 -6.2 -6.2 -2.4 6.2 -2.4 Z" fill="#f4dc95"/>
   <!-- live 心跳点 -->
-  <circle cx="76" cy="21" r="4.5" fill="#14171d"/>
-  <circle cx="76" cy="21" r="2" fill="#6fdc8c"/>
+  <circle cx="76" cy="21" r="4" fill="#6fdc8c"/>
 </svg>
