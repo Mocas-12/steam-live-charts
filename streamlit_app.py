@@ -6,6 +6,7 @@ st.cache_data 控制上游请求频率，st.fragment(run_every=60s) 让榜单原
 
 import html as htmllib
 import time
+from datetime import datetime, timezone, timedelta
 
 import streamlit as st
 
@@ -279,7 +280,7 @@ a { color: #e8eaf0; }
 /* 最热游玩行 */
 .gc-thead, .gc-row {
   display: grid;
-  grid-template-columns: 56px 156px minmax(0,1fr) 110px 110px 70px;
+  grid-template-columns: 64px 156px minmax(0,1fr) 110px 110px 70px;
   gap: 16px; align-items: center; padding: 8px 6px;
 }
 .gc-thead {
@@ -329,9 +330,9 @@ a { color: #e8eaf0; }
 }
 
 /* 价格类榜单的横排（无在线数据列） */
-.gc-thead.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.gc-thead.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .gc-thead.simple .r { text-align: right; }
-.gc-row.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.gc-row.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .gc-row.simple .price-col {
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
@@ -383,7 +384,7 @@ def render_rails():
     medals = ["var(--gc-gold)", "#d7e0f0", "#e89a6b"]
     rows = "".join(
         f'<a class="rrow" href="{_esc(i["url"])}" target="_blank">'
-        f'<span class="rnum" style="color:{medals[idx]}">#{i["rank"]}</span>'
+        f'<span class="rnum" style="color:{medals[idx]}">{i["rank"]}</span>'
         f'<img src="{_esc(i["image"])}" loading="lazy">'
         f'<span class="rmeta">'
         f'<span class="rname">{_esc(i["name"])}</span>'
@@ -391,7 +392,7 @@ def render_rails():
         f'</span></a>'
         for idx, i in enumerate(items[:3])
     )
-    t = time.strftime("%H:%M:%S", time.localtime())
+    t = cn_now()
     st.markdown(
         f'''
 <div class="gc-rail left"><div class="rail-title">▍此刻在线 TOP 3</div>{rows}</div>
@@ -465,6 +466,14 @@ def load_most_played():
 # ---------- HTML 渲染 ----------
 
 
+_CN_TZ = timezone(timedelta(hours=8))
+
+
+def cn_now() -> str:
+    """Cloud 服务器为 UTC，展示一律换算成北京时间。"""
+    return datetime.now(_CN_TZ).strftime("%H:%M:%S")
+
+
 def _esc(s):
     return htmllib.escape(str(s)) if s is not None else ""
 
@@ -509,7 +518,7 @@ def row_html(it, stats):
     if not stats:
         # 价格类榜单：# | 封面 | 游戏 | 价格
         return (f'<a class="gc-row simple" href="{_esc(it["url"])}" target="_blank">'
-                f'<span class="rank">#{it["rank"]}</span>'
+                f'<span class="rank">{it["rank"]}</span>'
                 f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
                 f'<span><div class="gname">{_esc(it["name"])}</div></span>'
                 f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
@@ -523,7 +532,7 @@ def row_html(it, stats):
     genres = " / ".join(it.get("genres") or [])
     sub = (f'<span class="genre">{_esc(genres)}{mini}</span>' if (genres or mini) else "")
     return (f'<a class="gc-row" href="{_esc(it["url"])}" target="_blank">'
-            f'<span class="rank">#{it["rank"]}</span>'
+            f'<span class="rank">{it["rank"]}</span>'
             f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
             f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
             f'<span class="pnum">{_fmt(it.get("players"))}</span>'
@@ -537,11 +546,11 @@ def rows_html(items, title, sub, stats=False):
         return (f'<div class="gc-panel"><div class="gc-section">{title}'
                 f'<span class="sub">{sub}</span></div>{body}</div>')
     if stats:
-        head = ('<div class="gc-thead"><span class="ctr">#</span><span>游戏</span>'
+        head = ('<div class="gc-thead"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
                 '<span class="ctr">周变化</span></div>')
     else:
-        head = ('<div class="gc-thead simple"><span class="ctr">#</span><span>游戏</span>'
+        head = ('<div class="gc-thead simple"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">价格</span></div>')
     body = "".join(row_html(it, stats) for it in items)
     return (f'<div class="gc-panel"><div class="gc-section">{title}'
@@ -549,7 +558,7 @@ def rows_html(items, title, sub, stats=False):
 
 
 def updated_line():
-    t = time.strftime("%H:%M:%S", time.localtime())
+    t = cn_now()
     return (f'<div class="gc-meta-line"><span class="dot"></span>'
             f'更新于 {t} · 每 60 秒自动刷新</div>')
 

@@ -55,7 +55,7 @@ function rowHtml(it, stats) {
   if (!stats) {
     // 价格类榜单：# | 封面 | 游戏 | 价格
     return `<a class="row simple" href="${esc(it.url)}" target="_blank" rel="noopener">
-      <span class="rank">#${it.rank}</span>
+      <span class="rank">${it.rank}</span>
       <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
            onerror="this.style.visibility='hidden'">
       <span class="gcol">
@@ -74,7 +74,7 @@ function rowHtml(it, stats) {
   }
   const sub = [genres, mini].filter(Boolean).join("");
   return `<a class="row" href="${esc(it.url)}" target="_blank" rel="noopener">
-    <span class="rank">#${it.rank}</span>
+    <span class="rank">${it.rank}</span>
     <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
          onerror="this.style.visibility='hidden'">
     <span class="gcol">
@@ -89,11 +89,11 @@ function rowHtml(it, stats) {
 
 function rowsHeadHtml(stats) {
   if (stats) {
-    return ('<div class="rows-head"><span class="ctr">#</span><span>游戏</span>'
+    return ('<div class="rows-head"><span class="ctr">排名</span><span>游戏</span>'
       + '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
       + '<span class="ctr">周变化</span></div>');
   }
-  return ('<div class="rows-head simple"><span class="ctr">#</span><span>游戏</span>'
+  return ('<div class="rows-head simple"><span class="ctr">排名</span><span>游戏</span>'
     + '<span></span><span class="r">价格</span></div>');
 }
 
@@ -206,7 +206,7 @@ function renderRails(mp) {
   const medals = ["var(--gold)", "#d7e0f0", "#e89a6b"];
   left.innerHTML = '<div class="rail-title">▍此刻在线 TOP 3</div>' + items.slice(0, 3).map((i, idx) =>
     `<a class="rrow" href="${esc(i.url)}" target="_blank" rel="noopener">
-       <span class="rnum" style="color:${medals[idx]}">#${i.rank}</span>
+       <span class="rnum" style="color:${medals[idx]}">${i.rank}</span>
        <img src="${esc(i.image)}" loading="lazy">
        <span class="rmeta">
          <span class="rname">${esc(i.name)}</span>

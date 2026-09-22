@@ -268,7 +268,7 @@ h1 {
 
 .rows-head, .row {
   display: grid;
-  grid-template-columns: 56px 156px minmax(0,1fr) 110px 110px 70px;
+  grid-template-columns: 64px 156px minmax(0,1fr) 110px 110px 70px;
   gap: 16px; align-items: center; padding: 8px 6px;
 }
 .rows-head {
@@ -323,9 +323,9 @@ h1 {
 }
 
 /* 价格类榜单的横排（无在线数据列） */
-.rows-head.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.rows-head.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .rows-head.simple .r { text-align: right; }
-.row.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.row.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .row.simple .price-col {
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
