@@ -213,7 +213,7 @@ def fetch_new_releases() -> list[dict]:
         if "demo" in low or "playtest" in low or "试玩" in it["name"] or "测试" in it["name"]:
             continue  # 过滤 Demo / 试玩版
         out.append(it)
-    return out[:50]
+    return out[:30]
 def fetch_detail(appid: int) -> dict | None:
     r = get_client().get(
         f"{STEAM_STORE}/api/appdetails", params={"appids": appid, "cc": CC, "l": LANG}
