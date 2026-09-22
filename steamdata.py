@@ -34,21 +34,6 @@ def get_client() -> httpx.Client:
     return _client
 
 
-def _clean_price(text: str) -> str | None:
-    t = htmllib.unescape(text).strip().replace(" ", "")
-    if not t:
-        return None
-    if "免费" in t or t.lower() == "free":
-        return "免费开玩"
-    if "¥" in t:
-        try:
-            v = float(t.replace("¥", "").replace(",", ""))
-            t = "¥" + f"{v:.2f}".rstrip("0").rstrip(".")
-        except ValueError:
-            pass
-    return t
-
-
 def price_from_overview(po: dict | None, is_free: bool) -> dict | None:
     if is_free:
         return {"free": True, "final": "免费开玩", "original": None, "pct": None}
@@ -295,7 +280,6 @@ def build_most_played(top_n: int = 100) -> list[dict]:
     with ThreadPoolExecutor(max_workers=15) as ex:
         details = list(ex.map(lambda r: safe(fetch_detail_cached, r["appid"]), ranks))
 
-    detail_by_id = {}
     name_cache: dict[int, str] = {}
 
     items = []

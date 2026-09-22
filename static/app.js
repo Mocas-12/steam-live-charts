@@ -90,8 +90,7 @@ function rowsHeadHtml(stats) {
     + '<span></span><span class="r">价格</span></div>');
 }
 
-function skeletonHtml(tab) {
-  void tab;
+function skeletonHtml() {
   return Array(12).fill(
     '<div class="skel-row"><div class="skel"></div><div class="skel s-img"></div>' +
     '<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'
@@ -110,7 +109,7 @@ function render(tab) {
   const items = state.data[tab];
   const listEl = $(`#list-${tab}`);
   if (!items) {
-    listEl.innerHTML = skeletonHtml(tab);
+    listEl.innerHTML = skeletonHtml();
     return;
   }
   if (!items.length) {
@@ -133,7 +132,7 @@ function updateMeta(data) {
 async function load(tab, { silent = false, force = false } = {}) {
   if (state.loading[tab]) return;
   state.loading[tab] = true;
-  if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml(tab);
+  if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml();
   $("#live-dot").style.background = "var(--link)";
   try {
     const res = await fetch(API[tab] + (force ? "?force=1" : ""));
