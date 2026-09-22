@@ -36,7 +36,7 @@
 ## ✨ Features
 
 - 🏆 **Six live leaderboards**: Top Sellers (Top 50) · Most Played (Top 100) · Free To Keep (100%-off giveaways) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50)
-- 🕹️ **VOLT theme**: a sports-scoreboard look of its own — volt-lime accents on black, italic condensed type, skewed badges and buttons, metal rank chips (gold / silver / bronze) for the top 3, monospace stat digits, plus a live data ticker and side rails on wide screens; deliberately *not* a Steam clone
+- 🕹️ **Cinematic theme**: content-first dark design — cover art is the hero, with soft rounded cards, gold accents, metal rank numerals (gold / silver / bronze) for the top 3, monospace stat digits, a live data ticker and side rails on wide screens; deliberately *not* a Steam clone
 - 👥 **Real-time player counts**: every game is queried individually against Steam's official stats API — the Most Played board is re-ranked by *current* concurrent players and shows today's peak plus weekly rank movement (▲ up / ▼ down / NEW)
 - 💰 **CNY prices & deal tags**: skewed volt discount pills with struck-through original prices
 - 🀄 **Simplified Chinese**: localized titles, genres and cover art (`cc=cn&l=schinese`)
