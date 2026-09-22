@@ -42,16 +42,6 @@ function priceRowHtml(p) {
   return `<span class="price-plain">${esc(p.final)}</span>`;
 }
 
-function cardHtml(it) {
-  return `<a class="card" href="${esc(it.url)}" target="_blank" rel="noopener">
-    <span class="rank-chip">#${it.rank}</span>
-    <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
-         onerror="this.style.visibility='hidden'">
-    <span class="name">${esc(it.name)}</span>
-    <span class="price-row">${priceRowHtml(it.price)}</span>
-  </a>`;
-}
-
 function deltaHtml(it) {
   if (it.is_new) return '<span class="delta new">新上榜</span>';
   const d = it.delta;
@@ -61,7 +51,19 @@ function deltaHtml(it) {
   return '<span class="delta same">—</span>';
 }
 
-function rowHtml(it) {
+function rowHtml(it, stats) {
+  if (!stats) {
+    // 价格类榜单：# | 封面 | 游戏 | 价格
+    return `<a class="row simple" href="${esc(it.url)}" target="_blank" rel="noopener">
+      <span class="rank">#${it.rank}</span>
+      <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
+           onerror="this.style.visibility='hidden'">
+      <span class="gcol">
+        <span class="gname">${esc(it.name)}</span>
+      </span>
+      <span class="price-col">${priceRowHtml(it.price)}</span>
+    </a>`;
+  }
   const genres = it.genres && it.genres.length ? esc(it.genres.join(" / ")) : "";
   let mini = "";
   const p = it.price;
@@ -85,15 +87,21 @@ function rowHtml(it) {
   </a>`;
 }
 
-function skeletonHtml(tab) {
-  if (tab === "most-played") {
-    return Array(12).fill(
-      '<div class="skel-row"><div class="skel"></div><div class="skel s-img"></div>' +
-      '<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'
-    ).join("");
+function rowsHeadHtml(stats) {
+  if (stats) {
+    return ('<div class="rows-head"><span class="ctr">#</span><span>游戏</span>'
+      + '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
+      + '<span class="ctr">周变化</span></div>');
   }
-  return Array(10).fill(
-    '<div class="skel-card"><div class="s-img"></div><div class="s-line"></div><div class="s-line" style="width:60%"></div></div>'
+  return ('<div class="rows-head simple"><span class="ctr">#</span><span>游戏</span>'
+    + '<span></span><span class="r">价格</span></div>');
+}
+
+function skeletonHtml(tab) {
+  void tab;
+  return Array(12).fill(
+    '<div class="skel-row"><div class="skel"></div><div class="skel s-img"></div>' +
+    '<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'
   ).join("");
 }
 
@@ -116,9 +124,8 @@ function render(tab) {
     listEl.innerHTML = emptyHtml();
     return;
   }
-  listEl.innerHTML = tab === "most-played"
-    ? items.map(rowHtml).join("")
-    : items.map(cardHtml).join("");
+  const stats = tab === "most-played";
+  listEl.innerHTML = rowsHeadHtml(stats) + items.map(it => rowHtml(it, stats)).join("");
 }
 
 function updateMeta(data) {

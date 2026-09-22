@@ -295,6 +295,15 @@ a { color: #e8eaf0; }
   font-size: 10px; padding: 2px 8px; border-radius: 99px; letter-spacing: 1px;
 }
 
+/* 价格类榜单的横排（无在线数据列） */
+.gc-thead.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.gc-thead.simple .r { text-align: right; }
+.gc-row.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.gc-row.simple .price-col {
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+}
+.gc-row.simple .price-col .gc-price { font-size: 14px; }
+
 /* 空状态 */
 .gc-empty { padding: 52px 0 42px; text-align: center; color: #98a0b5; }
 .gc-empty .ghost {
@@ -319,7 +328,7 @@ a { color: #e8eaf0; }
 
 @media (max-width: 860px) {
   .gc-thead { display: none; }
-  .gc-row { grid-template-columns: 34px 116px minmax(0,1fr) auto; gap: 11px; }
+  .gc-row, .gc-row.simple { grid-template-columns: 34px 116px minmax(0,1fr) auto; gap: 11px; }
   .gc-row img { width: 116px; }
   .gc-row .peak, .gc-row .delta { display: none; }
   .gc-row .pnum { font-size: 15px; }
@@ -418,21 +427,6 @@ def price_row_html(p):
     return f'<span class="gc-price">{_esc(p["final"])}</span>'
 
 
-def card_html(it):
-    return (f'<a class="gc-card" href="{_esc(it["url"])}" target="_blank">'
-            f'<span class="gc-rank">#{it["rank"]}</span>'
-            f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
-            f'<span class="name">{_esc(it["name"])}</span>'
-            f'<span class="price-row">{price_row_html(it["price"])}</span></a>')
-
-
-def grid_html(items, title, sub):
-    body = "".join(card_html(it) for it in items) if items else EMPTY_HTML
-    return (f'<div class="gc-panel"><div class="gc-section">{title}'
-            f'<span class="sub">{sub}</span></div>'
-            f'<div class="gc-grid">{body}</div></div>')
-
-
 EMPTY_HTML = (
     '<div class="gc-empty"><div class="ghost">FREE</div>'
     '<div class="etitle">当前没有限时免费入库活动</div>'
@@ -457,7 +451,14 @@ def delta_html(it):
     return '<span class="delta same">—</span>'
 
 
-def row_html(it):
+def row_html(it, stats):
+    if not stats:
+        # 价格类榜单：# | 封面 | 游戏 | 价格
+        return (f'<a class="gc-row simple" href="{_esc(it["url"])}" target="_blank">'
+                f'<span class="rank">#{it["rank"]}</span>'
+                f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
+                f'<span><div class="gname">{_esc(it["name"])}</div></span>'
+                f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
     p = it.get("price") or {}
     mini = ""
     if p.get("final"):
@@ -476,11 +477,19 @@ def row_html(it):
             f'{delta_html(it)}</a>')
 
 
-def rows_html(items, title, sub):
-    head = ('<div class="gc-thead"><span class="ctr">#</span><span>游戏</span>'
-            '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-            '<span class="ctr">周变化</span></div>')
-    body = "".join(row_html(it) for it in items)
+def rows_html(items, title, sub, stats=False):
+    if not items:
+        body = EMPTY_HTML
+        return (f'<div class="gc-panel"><div class="gc-section">{title}'
+                f'<span class="sub">{sub}</span></div>{body}</div>')
+    if stats:
+        head = ('<div class="gc-thead"><span class="ctr">#</span><span>游戏</span>'
+                '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
+                '<span class="ctr">周变化</span></div>')
+    else:
+        head = ('<div class="gc-thead simple"><span class="ctr">#</span><span>游戏</span>'
+                '<span></span><span class="r">价格</span></div>')
+    body = "".join(row_html(it, stats) for it in items)
     return (f'<div class="gc-panel"><div class="gc-section">{title}'
             f'<span class="sub">{sub}</span></div>{head}{body}</div>')
 
@@ -537,7 +546,7 @@ tab_sellers, tab_played, tab_ftk, tab_specials, tab_new, tab_free = st.tabs(
 @st.fragment(run_every="60s")
 def render_sellers():
     st.markdown(
-        updated_line() + grid_html(load_top_sellers(), "热门畅销商品", "TOP 50 · BY UNITS SOLD"),
+        updated_line() + rows_html(load_top_sellers(), "热门畅销商品", "TOP 50 · BY UNITS SOLD"),
         unsafe_allow_html=True,
     )
 
@@ -545,7 +554,7 @@ def render_sellers():
 @st.fragment(run_every="60s")
 def render_most_played():
     st.markdown(
-        updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS"),
+        updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True),
         unsafe_allow_html=True,
     )
 
@@ -553,7 +562,7 @@ def render_most_played():
 @st.fragment(run_every="60s")
 def render_free_to_keep():
     st.markdown(
-        updated_line() + grid_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领"),
+        updated_line() + rows_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领"),
         unsafe_allow_html=True,
     )
 
@@ -561,7 +570,7 @@ def render_free_to_keep():
 @st.fragment(run_every="60s")
 def render_specials():
     st.markdown(
-        updated_line() + grid_html(load_specials(), "特惠专区", "TOP 50 · HOT DEALS"),
+        updated_line() + rows_html(load_specials(), "特惠专区", "TOP 50 · HOT DEALS"),
         unsafe_allow_html=True,
     )
 
@@ -569,7 +578,7 @@ def render_specials():
 @st.fragment(run_every="60s")
 def render_new():
     st.markdown(
-        updated_line() + grid_html(load_new_releases(), "新品上架", "TOP 30 · NEW RELEASES"),
+        updated_line() + rows_html(load_new_releases(), "新品上架", "TOP 30 · NEW RELEASES"),
         unsafe_allow_html=True,
     )
 
@@ -577,7 +586,7 @@ def render_new():
 @st.fragment(run_every="60s")
 def render_free():
     st.markdown(
-        updated_line() + grid_html(load_free_games(), "免费游戏", "TOP 50 · FREE TO PLAY"),
+        updated_line() + rows_html(load_free_games(), "免费游戏", "TOP 50 · FREE TO PLAY"),
         unsafe_allow_html=True,
     )
 

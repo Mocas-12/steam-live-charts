@@ -288,6 +288,15 @@ h1 {
   font-size: 10px; padding: 2px 8px; border-radius: 99px; letter-spacing: 1px;
 }
 
+/* 价格类榜单的横排（无在线数据列） */
+.rows-head.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.rows-head.simple .r { text-align: right; }
+.row.simple { grid-template-columns: 56px 156px minmax(0,1fr) 240px; }
+.row.simple .price-col {
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+}
+.row.simple .price-col .price-plain { font-size: 14px; }
+
 /* ---------- 空状态 ---------- */
 
 .empty { padding: 52px 0 42px; text-align: center; color: var(--muted); }
@@ -337,7 +346,7 @@ footer {
 
 @media (max-width: 860px) {
   .rows-head { display: none; }
-  .row, .skel-row {
+  .row, .skel-row, .row.simple, .rows-head.simple {
     grid-template-columns: 34px 116px minmax(0,1fr) auto;
     gap: 11px;
   }

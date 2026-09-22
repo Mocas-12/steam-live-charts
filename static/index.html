@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>实时游戏榜单 · GAMECHARTS</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0b0e'/><rect x='8' y='8' width='7' height='16' rx='1' fill='%23d6ff3f' transform='skewX(-8)' transform-origin='16 16'/></svg>">
-<link rel="stylesheet" href="steam.css?v=4">
+<link rel="stylesheet" href="steam.css?v=5">
 </head>
 <body>
 
@@ -67,7 +67,7 @@
 
   <section class="panel" id="panel-top-sellers">
     <div class="section-title">热门畅销商品 <span class="section-sub">TOP 50 · BY UNITS SOLD</span></div>
-    <div class="grid" id="list-top-sellers"></div>
+    <div class="rows" id="list-top-sellers"></div>
   </section>
 
   <section class="panel" id="panel-most-played" hidden>
@@ -81,22 +81,22 @@
 
   <section class="panel" id="panel-free-to-keep" hidden>
     <div class="section-title">限时免费入库 <span class="section-sub">FREE TO KEEP · 原价付费，现在免费领</span></div>
-    <div class="grid" id="list-free-to-keep"></div>
+    <div class="rows" id="list-free-to-keep"></div>
   </section>
 
   <section class="panel" id="panel-specials" hidden>
     <div class="section-title">特惠专区 <span class="section-sub">TOP 50 · HOT DEALS</span></div>
-    <div class="grid" id="list-specials"></div>
+    <div class="rows" id="list-specials"></div>
   </section>
 
   <section class="panel" id="panel-new-releases" hidden>
     <div class="section-title">新品上架 <span class="section-sub">TOP 30 · NEW RELEASES</span></div>
-    <div class="grid" id="list-new-releases"></div>
+    <div class="rows" id="list-new-releases"></div>
   </section>
 
   <section class="panel" id="panel-free-games" hidden>
     <div class="section-title">免费游戏 <span class="section-sub">TOP 50 · FREE TO PLAY</span></div>
-    <div class="grid" id="list-free-games"></div>
+    <div class="rows" id="list-free-games"></div>
   </section>
 </main>
 
@@ -111,6 +111,6 @@
   </div>
 </footer>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
