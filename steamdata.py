@@ -214,6 +214,20 @@ def fetch_new_releases() -> list[dict]:
             continue  # 过滤 Demo / 试玩版
         out.append(it)
     return out[:30]
+def fetch_most_played() -> list[dict]:
+    r = get_client().get(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
+    r.raise_for_status()
+    return r.json()["response"]["ranks"]
+
+
+def fetch_ccu(appid: int) -> int:
+    r = get_client().get(
+        f"{STEAM_API}/ISteamUserStats/GetNumberOfCurrentPlayers/v1/", params={"appid": appid}
+    )
+    r.raise_for_status()
+    return r.json()["response"].get("player_count", 0)
+
+
 def fetch_detail(appid: int) -> dict | None:
     r = get_client().get(
         f"{STEAM_STORE}/api/appdetails", params={"appids": appid, "cc": CC, "l": LANG}
