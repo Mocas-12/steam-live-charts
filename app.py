@@ -81,6 +81,16 @@ new_cache = TTLCache(600)
 app = FastAPI(title="Steam 实时游戏榜单")
 
 
+@app.middleware("http")
+async def no_cache_static(request, call_next):
+    """静态资源禁用启发式缓存（保留 Etag 协商），改前端立刻生效。"""
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith((".css", ".js", ".html")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 def meta() -> dict:
     return {"updated_at": int(time.time()), "ttl": REFRESH_SECONDS}
 
@@ -155,6 +165,32 @@ async def fetch_search(specials: bool, free: bool = False) -> list[dict]:
     return parse_search_rows(r.json()["results_html"])
 
 
+async def fetch_free_to_keep() -> list[dict]:
+    """限时免费入库：原价付费、当前 100% 折扣免费入库的游戏。
+
+    Steam 没有现成榜单，用 search 的 specials=1 与 maxprice=free 的交集，
+    再只留 -100% 折扣行（平时 0~10 个，需要空状态兜底）。
+    """
+    params = {
+        "query": "",
+        "start": 0,
+        "count": 50,
+        "dynamic_data": "",
+        "sort_by": "TopSellers",
+        "supportedlang": "schinese",
+        "l": LANG,
+        "snr": "1_7_7_700_702",
+        "infinite": 1,
+        "cc": CC,
+        "specials": 1,
+        "maxprice": "free",
+    }
+    r = await client.get(f"{STEAM_STORE}/search/results/", params=params)
+    r.raise_for_status()
+    rows = parse_search_rows(r.json()["results_html"])
+    return [it for it in rows if it["price"]["pct"] == -100]
+
+
 async def fetch_new_releases() -> list[dict]:
     """新品上架：商店精选每周新品（featuredcategories，30 条，含价格/封面）。"""
     r = await client.get(f"{STEAM_STORE}/api/featuredcategories/", params={"cc": CC, "l": LANG})
@@ -205,6 +241,17 @@ async def api_specials():
     items = await search_cache.get("specials", lambda: fetch_search(True))
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
+    ]
+    return {"meta": meta(), "items": items}
+
+
+@app.get("/api/free-to-keep")
+async def api_free_to_keep():
+    items = await search_cache.get("free_to_keep", fetch_free_to_keep)
+    items = [
+        {**it, "rank": i + 1}
+        for i, it in enumerate(items)
+        if it["price"]["pct"] == -100
     ]
     return {"meta": meta(), "items": items}
 

@@ -3,6 +3,7 @@
 const API = {
   "top-sellers": "/api/top-sellers",
   "most-played": "/api/most-played",
+  "free-to-keep": "/api/free-to-keep",
   "specials": "/api/specials",
   "new-releases": "/api/new-releases",
   "free-games": "/api/free-games",
@@ -37,7 +38,7 @@ function priceRowHtml(p) {
       `<span class="price-tag"><span class="pct">${p.pct}%</span>` +
       `<span class="final">${esc(p.final)}</span></span>`;
   }
-  if (p.free) return '<span class="price-plain">免费开玩</span>';
+  if (p.free) return '<span class="price-plain free">免费开玩</span>';
   return `<span class="price-plain">${esc(p.final)}</span>`;
 }
 
@@ -96,11 +97,23 @@ function skeletonHtml(tab) {
   ).join("");
 }
 
+function emptyHtml() {
+  return `<div class="empty">
+    <div class="ghost">FREE</div>
+    <div class="etitle">当前没有限时免费入库活动</div>
+    <div class="esub">Steam 免费入库活动零星出现（周末较多），开启后游戏永久入库 · 60 秒后自动复查</div>
+  </div>`;
+}
+
 function render(tab) {
   const items = state.data[tab];
   const listEl = $(`#list-${tab}`);
   if (!items) {
     listEl.innerHTML = skeletonHtml(tab);
+    return;
+  }
+  if (!items.length) {
+    listEl.innerHTML = emptyHtml();
     return;
   }
   listEl.innerHTML = tab === "most-played"
@@ -147,6 +160,33 @@ function isStale(tab) {
   return !state.fetchedAt[tab] || Date.now() - state.fetchedAt[tab] > 60_000;
 }
 
+/* ---------- 跑马灯资讯条 ---------- */
+
+let tickerBusy = false;
+
+async function updateTicker() {
+  if (tickerBusy) return;
+  tickerBusy = true;
+  try {
+    const [ts, mp] = await Promise.all([
+      fetch(API["top-sellers"]).then(r => r.json()),
+      fetch(API["most-played"]).then(r => r.json()),
+    ]);
+    const parts = [];
+    const total = (mp.items || []).reduce((a, i) => a + (i.players || 0), 0);
+    if (total) parts.push(`TOP100 总在线 ${total.toLocaleString("en-US")} 人`);
+    (ts.items || []).slice(0, 3).forEach(i =>
+      parts.push(`热销 #${i.rank} ${i.name} ${i.price?.final ?? ""}`));
+    (mp.items || []).slice(0, 3).forEach(i =>
+      parts.push(`最热 #${i.rank} ${i.name} ${fmt(i.players)} 人在线`));
+    const seq = parts.map(p => `<span class="ti"><b>▮</b>${esc(p)}</span>`).join("");
+    const track = $("#ticker-track");
+    if (track) track.innerHTML = seq + seq; // 两份内容首尾相接实现无缝循环
+  } catch (e) { /* 静默 */ } finally {
+    tickerBusy = false;
+  }
+}
+
 function switchTab(name) {
   if (state.active === name) return;
   state.active = name;
@@ -167,6 +207,7 @@ setInterval(() => {
   if (state.nextRefresh <= 0) {
     state.nextRefresh = 60;
     load(state.active, { silent: true });
+    updateTicker();
   }
   $("#countdown").textContent = `${state.nextRefresh}s 后自动刷新`;
 }, 1000);
@@ -185,3 +226,4 @@ $("#retry-btn").addEventListener("click", () => load(state.active));
 
 switchTab("top-sellers");
 load("top-sellers");
+updateTicker();

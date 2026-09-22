@@ -1,4 +1,4 @@
-"""Steam 实时游戏榜单 —— Streamlit Cloud 入口（Neon Arena 主题）。
+"""Steam 实时游戏榜单 —— Streamlit Cloud 入口（VOLT 荧光运动记分板主题）。
 
 与本地 FastAPI 版（app.py + static/）共用数据层 steamdata.py；
 st.cache_data 控制上游请求频率，st.fragment(run_every=60s) 让榜单原地自动刷新。
@@ -12,13 +12,13 @@ import streamlit as st
 import steamdata
 
 st.set_page_config(
-    page_title="GameCharts · 实时游戏榜单",
+    page_title="GAMECHARTS · 实时游戏榜单",
     page_icon="🎮",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ---------- Neon Arena 主题 ----------
+# ---------- VOLT 主题 ----------
 
 CSS = """
 <style>
@@ -26,248 +26,288 @@ CSS = """
 [data-testid="stHeader"] { display: none; }
 #MainMenu, footer, [data-testid="stFooter"] { visibility: hidden; }
 [data-testid="stStatusWidget"], [data-testid="stToolbar"] { display: none; }
-.block-container { padding: 1.1rem 1rem 2rem; max-width: 1060px; margin: 0 auto; }
+.block-container { padding: 0 1rem 2rem; max-width: 1060px; margin: 0 auto; }
 section[data-testid="stVerticalBlock"] { gap: .45rem; }
 
-/* 页面底色：霓虹辉光 + 网格 */
+/* 页面底色：纯黑，靠组件本身出效果 */
 .stApp {
-  background:
-    radial-gradient(900px 420px at 8% -8%, rgba(124,92,255,.16), transparent 60%),
-    radial-gradient(900px 460px at 96% 4%, rgba(0,229,255,.10), transparent 60%),
-    linear-gradient(rgba(124,140,255,.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124,140,255,.028) 1px, transparent 1px),
-    linear-gradient(180deg, #0b101c 0%, #05070d 420px) fixed;
+  background: linear-gradient(180deg, #0a0b0f 0%, #08090c 320px) fixed;
 }
 body, .stApp, p, span {
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  color: #dfe6f5;
+  color: #f2f4f8;
 }
 
 :root {
-  --gc-line: rgba(124,140,255,.16);
-  --gc-line-hi: rgba(124,140,255,.45);
-  --gc-acc1: #7c5cff;
-  --gc-acc2: #00e5ff;
-  --gc-panel: rgba(13,18,32,.78);
-  --gc-muted: #7c88a3;
-  --gc-dim: #4b5670;
-  --gc-green: #58f08a;
+  --gc-panel: #0e1015;
+  --gc-panel2: #12141b;
+  --gc-line: #1f232e;
+  --gc-line-hi: rgba(214,255,63,.5);
+  --gc-volt: #d6ff3f;
+  --gc-muted: #9aa2b5;
+  --gc-dim: #565e70;
+  --gc-green: #d6ff3f;
+  --gc-red: #ff4d5e;
   --gc-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
-a { color: #6fdcff; }
+a { color: #d6ff3f; }
 .stMarkdown a, .stMarkdown a * { text-decoration: none !important; }
+
+/* 跑马灯资讯条 */
+.gc-ticker {
+  background: var(--gc-volt); color: #0a0b0e;
+  overflow: hidden; height: 30px; display: flex; align-items: center;
+  margin: 0 -1rem; position: relative; z-index: 11;
+}
+.gc-ticker-track {
+  display: inline-flex; white-space: nowrap; align-items: center;
+  animation: gc-tick 36s linear infinite; will-change: transform;
+}
+.gc-ticker:hover .gc-ticker-track { animation-play-state: paused; }
+@keyframes gc-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.gc-ticker .ti {
+  font-family: var(--gc-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 1px;
+  padding: 0 22px; text-transform: uppercase;
+}
+.gc-ticker .ti b { color: #3e5200; margin-right: 8px; }
 
 /* 顶栏 */
 .gc-nav {
-  background: rgba(6,9,16,.85); margin: -1.1rem -1rem 0;
+  background: #0a0b0e; margin: 0 -1rem;
   padding: 0 max(1rem, calc((100% - 1060px)/2));
   border-bottom: 1px solid var(--gc-line);
-  backdrop-filter: blur(10px);
+  height: 60px; display: flex; align-items: center;
 }
-.gc-nav-inner { display: flex; align-items: center; gap: 18px; height: 56px; }
+.gc-nav-inner { display: flex; align-items: center; gap: 18px; width: 100%; }
 .gc-logo { display: flex; align-items: center; gap: 10px; }
 .gc-logo-mark {
-  width: 24px; height: 24px; border-radius: 7px;
-  background: linear-gradient(135deg, var(--gc-acc1), var(--gc-acc2));
-  box-shadow: 0 0 14px rgba(124,92,255,.55);
+  width: 13px; height: 22px; background: var(--gc-volt);
+  transform: skewX(-12deg); box-shadow: 4px 0 0 #2e3a05;
 }
-.gc-logo-word { font-size: 16px; font-weight: 800; letter-spacing: 3px; color: #fff; }
-.gc-logo-word span { color: var(--gc-acc2); }
+.gc-logo-word { font-size: 17px; font-weight: 900; font-style: italic; letter-spacing: 2px; color: #fff; }
+.gc-logo-word span { color: var(--gc-volt); }
 .gc-logo-sub {
-  font-size: 10px; font-weight: 600; letter-spacing: 2px; color: var(--gc-muted);
-  border: 1px solid var(--gc-line); padding: 3px 8px; border-radius: 3px;
+  font-family: var(--gc-mono); font-size: 10px; font-weight: 700; letter-spacing: 3px;
+  color: #0a0b0e; background: var(--gc-volt); padding: 3px 8px; transform: skewX(-12deg);
 }
 .gc-nav .spacer { margin-right: auto; }
-.gc-nav a { color: #7c88a3; text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: 2px; padding: 6px 10px; border-radius: 3px; }
-.gc-nav a:hover { color: #fff; background: rgba(124,92,255,.12); }
+.gc-nav a { color: #9aa2b5; text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: 2px; padding: 6px 10px; border-radius: 3px; }
+.gc-nav a:hover { color: var(--gc-volt); background: rgba(214,255,63,.07); }
 .gc-install {
-  color: #051018 !important; font-size: 12px; font-weight: 800; letter-spacing: 1px;
-  padding: 8px 14px; border-radius: 4px;
-  background: linear-gradient(90deg, var(--gc-acc1), var(--gc-acc2));
-  box-shadow: 0 0 16px rgba(0,229,255,.25);
+  color: #0a0b0e !important; font-size: 12px; font-weight: 900; letter-spacing: 1px;
+  padding: 9px 16px; background: var(--gc-volt); transform: skewX(-12deg);
 }
+.gc-install span { display: inline-block; transform: skewX(12deg); }
+
+/* 侧边水印 */
+.gc-rail {
+  position: fixed; top: 50%; transform: translateY(-50%); z-index: 5;
+  writing-mode: vertical-rl; font-family: var(--gc-mono);
+  font-size: 10px; font-weight: 700; letter-spacing: 5px; color: #23272f;
+  user-select: none; pointer-events: none; text-transform: uppercase;
+}
+.gc-rail .volt { color: rgba(214,255,63,.35); }
+.gc-rail.left { left: calc(50% - 530px - 54px); }
+.gc-rail.right { right: calc(50% - 530px - 54px); }
+@media (max-width: 1300px) { .gc-rail { display: none; } }
 
 /* 标题区 */
 .gc-overline {
   font-family: var(--gc-mono); font-size: 11px; font-weight: 700; letter-spacing: 4px;
-  color: var(--gc-acc2); text-transform: uppercase; margin: 14px 0 4px;
+  color: var(--gc-volt); text-transform: uppercase; margin: 14px 0 4px;
 }
+.gc-overline::before { content: "▮ "; }
 .gc-h1 {
-  font-size: 33px; font-weight: 900; letter-spacing: 1px; line-height: 1.15;
-  background: linear-gradient(90deg, #fff 20%, #b9a8ff 55%, #6fdcff);
-  -webkit-background-clip: text; background-clip: text; color: transparent !important;
+  font-size: 35px; font-weight: 900; font-style: italic; letter-spacing: 1px;
+  line-height: 1.1; color: #fff !important;
 }
+.gc-h1 em { font-style: italic; color: var(--gc-volt); }
 .gc-meta {
-  font-family: var(--gc-mono); font-size: 12px; color: var(--gc-muted);
+  font-family: var(--gc-mono); font-size: 12px; color: #9aa2b5;
   display: flex; align-items: center; gap: 8px;
 }
 .gc-meta .dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--gc-acc2);
-  box-shadow: 0 0 8px var(--gc-acc2); animation: gc-pulse 1.6s infinite;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--gc-volt);
+  box-shadow: 0 0 8px rgba(214,255,63,.8); animation: gc-pulse 1.6s infinite;
 }
 @keyframes gc-pulse { 50% { opacity: .25; } }
 
-/* 刷新按钮（对齐 + 霓虹描边） */
+/* 刷新按钮（斜切荧光块，与标题居中对齐） */
 .stButton > button {
-  width: 100%; border-radius: 4px; padding: 9px 0;
-  background: linear-gradient(135deg, rgba(124,92,255,.22), rgba(0,229,255,.14));
-  border: 1px solid var(--gc-line-hi); color: #dfe6f5;
-  font-size: 12.5px; font-weight: 700; letter-spacing: 1px;
-  transition: all .15s;
+  width: 100%; border-radius: 3px; padding: 10px 0;
+  background: var(--gc-volt); color: #0a0b0e; border: none;
+  font-size: 12.5px; font-weight: 900; font-style: italic; letter-spacing: 1px;
+  transform: skewX(-10deg); transition: filter .15s;
 }
-.stButton > button:hover {
-  border-color: var(--gc-acc1); color: #fff;
-  box-shadow: 0 0 14px rgba(124,92,255,.45); filter: brightness(1.2);
-}
-.stButton > button p { font-size: 12.5px; font-weight: 700; letter-spacing: 1px; }
+.stButton > button:hover { filter: brightness(1.12); }
+.stButton > button p { font-size: 12.5px; font-weight: 900; letter-spacing: 1px; color: #0a0b0e !important; }
 
 /* Tab（baseweb 覆盖） */
-[data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--gc-line); }
+[data-baseweb="tab-list"] { gap: 6px; border-bottom: 1px solid var(--gc-line); }
 [role="tab"] {
-  color: #7c88a3; border-radius: 6px 6px 0 0; padding: 10px 18px 9px;
-  border: 1px solid transparent; border-bottom: none; font-weight: 700;
+  color: #9aa2b5; border-radius: 4px; padding: 10px 18px;
+  font-weight: 800; letter-spacing: 1px;
 }
-[role="tab"] p { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
-[role="tab"]:hover p { color: #fff !important; }
-[role="tab"][aria-selected="true"] { background: var(--gc-panel); border-color: var(--gc-line); border-bottom-color: transparent; }
-[role="tab"][aria-selected="true"] p { color: #fff !important; }
-[data-baseweb="tab-highlight"] {
-  height: 2px !important;
-  background: linear-gradient(90deg, var(--gc-acc1), var(--gc-acc2)) !important;
-  box-shadow: 0 0 10px rgba(124,92,255,.6);
+[role="tab"] p { font-size: 13.5px; font-weight: 800; letter-spacing: 1px; }
+[role="tab"]:hover p { color: var(--gc-volt) !important; }
+[role="tab"][aria-selected="true"] p { color: #0a0b0e !important; }
+[role="tab"][aria-selected="true"] {
+  background: linear-gradient(105deg, var(--gc-volt) 78%, #b8dd2a) !important;
+  border-radius: 3px;
 }
+[data-baseweb="tab-highlight"] { display: none !important; }
 
 /* 榜单面板 */
 .gc-panel {
   background: var(--gc-panel);
-  border: 1px solid var(--gc-line); border-top: 1px solid rgba(124,140,255,.3);
-  border-radius: 0 10px 10px 10px;
+  border: 1px solid var(--gc-line); border-top: 2px solid var(--gc-volt);
+  border-radius: 0 8px 8px 8px;
   padding: 4px 18px 18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .gc-section {
-  color: #fff; font-size: 16px; font-weight: 800; letter-spacing: 1px;
+  color: #fff; font-size: 17px; font-weight: 900; font-style: italic; letter-spacing: 1px;
   padding: 15px 0 11px; display: flex; align-items: baseline; gap: 10px;
 }
 .gc-section::before {
-  content: ""; width: 4px; height: 16px; align-self: center;
-  background: linear-gradient(180deg, var(--gc-acc1), var(--gc-acc2));
-  border-radius: 2px; box-shadow: 0 0 8px rgba(124,92,255,.7);
+  content: ""; width: 14px; height: 15px; align-self: center;
+  background: var(--gc-volt); transform: skewX(-12deg);
 }
-.gc-section .sub { color: #7c88a3; font-size: 11px; font-family: var(--gc-mono); letter-spacing: 1px; }
+.gc-section .sub { color: #565e70 !important; font-size: 11px; font-family: var(--gc-mono); letter-spacing: 2px; font-style: normal; }
 
 /* 卡片网格 */
 .gc-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 13px;
 }
 .gc-card {
-  position: relative; text-decoration: none; display: block; border-radius: 8px;
-  background: linear-gradient(165deg, rgba(23,31,54,.92), rgba(9,13,24,.92));
+  position: relative; text-decoration: none !important; display: block; border-radius: 6px;
+  background: var(--gc-panel2);
   border: 1px solid var(--gc-line);
   overflow: hidden;
-  transition: transform .18s, border-color .18s, box-shadow .18s;
+  transition: transform .18s, border-color .18s;
 }
 .gc-card:hover {
-  transform: translateY(-3px); border-color: var(--gc-line-hi);
-  box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 22px rgba(124,92,255,.22);
+  transform: translateY(-3px); border-color: rgba(214,255,63,.55);
 }
 .gc-card img { width: 100%; aspect-ratio: 460/215; display: block; object-fit: cover; }
 .gc-card .name {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  color: #dfe6f5 !important; font-size: 13px; font-weight: 600; line-height: 1.35;
+  color: #f2f4f8 !important; font-size: 13px; font-weight: 700; line-height: 1.35;
   padding: 9px 11px 2px; height: 38px; overflow: hidden;
 }
-.gc-card:hover .name { color: #fff !important; }
+.gc-card:hover .name { color: #d6ff3f !important; }
 .gc-card .price-row { display: flex; align-items: center; gap: 7px; padding: 7px 11px 11px; min-height: 32px; }
 .gc-rank {
   position: absolute; top: 7px; left: 7px; z-index: 1;
-  font-family: var(--gc-mono); font-size: 12px; font-weight: 800;
-  color: #dfe6f5; background: rgba(5,8,16,.82);
-  border: 1px solid var(--gc-line-hi);
-  padding: 1px 9px; border-radius: 3px;
+  font-family: var(--gc-mono); font-size: 12px; font-weight: 800; font-style: italic;
+  color: #9aa2b5; background: rgba(8,9,12,.85);
+  border: 1px solid var(--gc-line);
+  padding: 1px 9px; border-radius: 2px;
 }
 .gc-grid .gc-card:nth-child(1) .gc-rank {
-  color: #1a1204; background: linear-gradient(135deg, #ffe18a, #ffcf5c);
-  border-color: #ffe18a; box-shadow: 0 0 12px rgba(255,207,92,.45);
+  color: #1a1204; background: #ffcf5c; border-color: #ffcf5c;
 }
 .gc-grid .gc-card:nth-child(2) .gc-rank {
-  color: #10141d; background: linear-gradient(135deg, #eef3fb, #d7e0f0);
-  border-color: #eef3fb;
+  color: #10141d; background: #d7e0f0; border-color: #d7e0f0;
 }
 .gc-grid .gc-card:nth-child(3) .gc-rank {
-  color: #1c0f05; background: linear-gradient(135deg, #ffb98a, #e89a6b);
-  border-color: #ffb98a;
+  color: #1c0f05; background: #e89a6b; border-color: #e89a6b;
 }
 
-/* 折扣标签 */
+/* 折扣标签（荧光绿斜切 pill） */
 .gc-tag {
-  display: inline-flex; align-items: stretch; border-radius: 4px; overflow: hidden;
-  border: 1px solid rgba(88,240,138,.35); background: rgba(88,240,138,.10);
+  display: inline-flex; align-items: stretch; border-radius: 3px;
+  background: var(--gc-volt); transform: skewX(-8deg);
 }
 .gc-tag .pct {
-  color: #58f08a !important; font-weight: 800; font-size: 13px; padding: 3px 7px;
-  font-family: var(--gc-mono);
+  color: #0a0b0e !important; font-weight: 900; font-size: 12.5px; padding: 3px 7px;
+  font-family: var(--gc-mono); transform: skewX(8deg);
 }
 .gc-tag .final {
-  color: #c9ffdd !important; font-size: 13px; padding: 3px 8px; font-weight: 600;
-  font-family: var(--gc-mono);
+  color: #0a0b0e !important; font-size: 12.5px; padding: 3px 8px; font-weight: 700;
+  font-family: var(--gc-mono); transform: skewX(8deg);
 }
-.gc-price { color: #dfe6f5 !important; font-size: 13px; font-family: var(--gc-mono); font-weight: 600; }
-.gc-strike { color: #4b5670 !important; text-decoration: line-through; font-size: 12px; font-family: var(--gc-mono); }
+.gc-price { color: #f2f4f8 !important; font-size: 13px; font-family: var(--gc-mono); font-weight: 700; }
+.gc-price.free { color: var(--gc-volt) !important; }
+.gc-strike { color: #565e70 !important; text-decoration: line-through; font-size: 12px; font-family: var(--gc-mono); }
 
 /* 最热游玩行 */
 .gc-thead, .gc-row {
   display: grid;
-  grid-template-columns: 46px 150px minmax(0,1fr) 105px 105px 66px;
+  grid-template-columns: 52px 150px minmax(0,1fr) 105px 105px 66px;
   gap: 14px; align-items: center; padding: 7px 4px;
 }
 .gc-thead {
-  color: #4b5670; font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  color: #565e70 !important; font-size: 11px; font-weight: 700; letter-spacing: 2px;
   font-family: var(--gc-mono); text-transform: uppercase;
   border-bottom: 1px solid var(--gc-line); padding-bottom: 9px; margin-bottom: 2px;
 }
-.gc-thead .r, .gc-thead .ctr { }
 .gc-thead .r { text-align: right; }
 .gc-thead .ctr { text-align: center; }
 .gc-row {
-  border-bottom: 1px solid rgba(124,140,255,.07);
+  border-bottom: 1px solid rgba(255,255,255,.04);
   border-radius: 6px; text-decoration: none !important;
 }
-.gc-row:hover { background: rgba(124,92,255,.07); }
+.gc-row:hover { background: rgba(214,255,63,.05); }
 .gc-row .rank {
-  font-family: var(--gc-mono); font-size: 17px; font-weight: 800; font-style: italic;
-  color: #4b5670 !important; text-align: center;
+  font-family: var(--gc-mono); font-size: 21px; font-weight: 900; font-style: italic;
+  color: transparent !important; -webkit-text-stroke: 1.2px #3a4152; text-align: center;
+}
+.gc-row:nth-of-type(1) .rank, .gc-row:nth-of-type(2) .rank, .gc-row:nth-of-type(3) .rank { -webkit-text-stroke: 0; }
+.gc-row:nth-of-type(1) .rank {
+  background: linear-gradient(160deg, #ffe9a8, #ffcf5c); -webkit-background-clip: text; background-clip: text;
+}
+.gc-row:nth-of-type(2) .rank {
+  background: linear-gradient(160deg, #f4f8ff, #d7e0f0); -webkit-background-clip: text; background-clip: text;
+}
+.gc-row:nth-of-type(3) .rank {
+  background: linear-gradient(160deg, #ffc79c, #e89a6b); -webkit-background-clip: text; background-clip: text;
 }
 .gc-row img {
-  width: 150px; aspect-ratio: 460/215; object-fit: cover; border-radius: 5px; display: block;
-  border: 1px solid rgba(124,140,255,.14);
+  width: 150px; aspect-ratio: 460/215; object-fit: cover; border-radius: 4px; display: block;
+  border: 1px solid var(--gc-line);
 }
-.gc-row .gname { color: #fff !important; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
-.gc-row:hover .gname { color: #00e5ff !important; }
-.gc-row .genre { color: #7c88a3 !important; font-size: 11.5px; margin-top: 3px; }
-.gc-row .genre .p { color: #58f08a !important; margin-left: 8px; font-family: var(--gc-mono); }
+.gc-row .gname { color: #fff !important; font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.gc-row:hover .gname { color: #d6ff3f !important; }
+.gc-row .genre { color: #9aa2b5 !important; font-size: 11.5px; margin-top: 3px; }
+.gc-row .genre .p { color: #d6ff3f !important; margin-left: 8px; font-family: var(--gc-mono); font-weight: 700; }
 .gc-row .pnum {
-  color: #fff !important; font-size: 18px; font-weight: 700; text-align: right;
+  color: #fff !important; font-size: 18px; font-weight: 800; text-align: right;
   font-family: var(--gc-mono); font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 12px rgba(0,229,255,.25);
 }
 .gc-row .peak {
-  color: #7c88a3 !important; font-size: 13.5px; text-align: right;
+  color: #9aa2b5 !important; font-size: 13.5px; text-align: right;
   font-family: var(--gc-mono); font-variant-numeric: tabular-nums;
 }
 .gc-row .delta { text-align: center; font-size: 13px; font-weight: 800; font-family: var(--gc-mono); }
-.gc-row .delta.up { color: #58f08a !important; }
-.gc-row .delta.down { color: #ff5d73 !important; }
-.gc-row .delta.same { color: #4b5670 !important; font-weight: 400; }
+.gc-row .delta.up { color: #d6ff3f !important; }
+.gc-row .delta.down { color: #ff4d5e !important; }
+.gc-row .delta.same { color: #565e70 !important; font-weight: 400; }
 .gc-row .delta .new {
-  display: inline-block; background: rgba(124,92,255,.16);
-  border: 1px solid rgba(124,92,255,.5); color: #c9b8ff !important;
-  font-size: 10px; padding: 2px 7px; border-radius: 3px; letter-spacing: 1px;
+  display: inline-block; background: var(--gc-volt); color: #0a0b0e !important;
+  font-size: 10px; padding: 2px 7px; border-radius: 2px; letter-spacing: 1px; font-style: italic;
+}
+
+/* 空状态 */
+.gc-empty { padding: 44px 0 36px; text-align: center; color: #9aa2b5; }
+.gc-empty .ghost {
+  font-family: var(--gc-mono); font-size: 40px; font-weight: 900; font-style: italic;
+  color: transparent; -webkit-text-stroke: 1.5px #2b313e; line-height: 1;
+}
+.gc-empty .etitle { color: #fff; font-weight: 800; margin: 12px 0 6px; }
+.gc-empty .esub { font-size: 12.5px; font-family: var(--gc-mono); color: #565e70; }
+
+.gc-meta-line {
+  font-family: var(--gc-mono); font-size: 12px; color: #9aa2b5;
+  display: flex; align-items: center; gap: 8px; padding: 2px 2px 8px;
+}
+.gc-meta-line .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--gc-volt);
+  box-shadow: 0 0 8px rgba(214,255,63,.8); animation: gc-pulse 1.6s infinite;
 }
 
 .gc-footer {
-  color: #4b5670 !important; font-size: 12px; line-height: 1.7;
+  color: #565e70 !important; font-size: 12px; line-height: 1.7;
   border-top: 1px solid var(--gc-line); padding-top: 12px; margin-top: 20px;
 }
 
@@ -284,6 +324,16 @@ a { color: #6fdcff; }
 
 st.markdown(CSS, unsafe_allow_html=True)
 
+# 侧边水印（宽屏装饰）
+st.markdown(
+    """
+<div class="gc-rail left">GAMECHARTS <span class="volt">▮</span> REALTIME GAME LEADERBOARDS</div>
+<div class="gc-rail right">DATA · STEAM OFFICIAL API <span class="volt">▮</span> REFRESH 60S</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# 顶栏 + 跑马灯
 st.markdown(
     """
 <div class="gc-nav"><div class="gc-nav-inner">
@@ -296,22 +346,11 @@ st.markdown(
   <a href="https://store.steampowered.com/" target="_blank">商店</a>
   <a href="https://steamcommunity.com/" target="_blank">社区</a>
   <a href="https://store.steampowered.com/charts/" target="_blank">官方榜单</a>
-  <a class="gc-install" href="https://store.steampowered.com/about/" target="_blank">安装 STEAM</a>
+  <a class="gc-install" href="https://store.steampowered.com/about/" target="_blank"><span>安装 STEAM</span></a>
 </div></div>
 """,
     unsafe_allow_html=True,
 )
-
-# ---------- 头部（列内垂直居中，修按钮对齐） ----------
-
-head_l, head_r = st.columns([4, 1], vertical_alignment="center")
-with head_l:
-    st.markdown('<div class="gc-overline">// Game Charts · Realtime Arena</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gc-h1">实时游戏榜单</div>', unsafe_allow_html=True)
-with head_r:
-    if st.button("↻ 立即刷新", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
 
 # ---------- 数据 ----------
 
@@ -326,6 +365,11 @@ def load_top_sellers():
 def load_specials():
     items = [it for it in steamdata.fetch_search(True) if it["price"]["final"]]
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
+
+
+@st.cache_data(ttl=120, show_spinner="正在扫描限时免费入库活动…")
+def load_free_to_keep():
+    return [{**it, "rank": i + 1} for i, it in enumerate(steamdata.fetch_free_to_keep())]
 
 
 @st.cache_data(ttl=600, show_spinner="正在拉取新品上架榜…")
@@ -362,6 +406,8 @@ def price_row_html(p):
         return (f'<span class="gc-strike">{_esc(p["original"])}</span>'
                 f'<span class="gc-tag"><span class="pct">{p["pct"]}%</span>'
                 f'<span class="final">{_esc(p["final"])}</span></span>')
+    if p.get("free"):
+        return '<span class="gc-price free">免费开玩</span>'
     return f'<span class="gc-price">{_esc(p["final"])}</span>'
 
 
@@ -374,10 +420,17 @@ def card_html(it):
 
 
 def grid_html(items, title, sub):
-    body = "".join(card_html(it) for it in items)
+    body = "".join(card_html(it) for it in items) if items else EMPTY_HTML
     return (f'<div class="gc-panel"><div class="gc-section">{title}'
             f'<span class="sub">{sub}</span></div>'
             f'<div class="gc-grid">{body}</div></div>')
+
+
+EMPTY_HTML = (
+    '<div class="gc-empty"><div class="ghost">FREE</div>'
+    '<div class="etitle">当前没有限时免费入库活动</div>'
+    '<div class="esub">Steam 免费入库活动零星出现（周末较多），开启后游戏永久入库 · 60 秒后自动复查</div></div>'
+)
 
 
 def _fmt(n):
@@ -427,14 +480,50 @@ def rows_html(items, title, sub):
 
 def updated_line():
     t = time.strftime("%H:%M:%S", time.localtime())
-    return (f'<div class="gc-meta" style="padding:2px 2px 8px"><span class="dot"></span>'
+    return (f'<div class="gc-meta-line"><span class="dot"></span>'
             f'更新于 {t} · 每 60 秒自动刷新</div>')
 
 
-# ---------- 五个榜单（fragment 每 60 秒原地刷新，不丢 tab 状态） ----------
+# ---------- 头部（列内垂直居中） ----------
 
-tab_sellers, tab_played, tab_specials, tab_new, tab_free = st.tabs(
-    ["热销商品", "最热游玩", "特惠专区", "新品上架", "免费游戏"]
+head_l, head_r = st.columns([4, 1], vertical_alignment="center")
+with head_l:
+    st.markdown('<div class="gc-overline">Realtime Arena · 每 60 秒自动刷新</div>', unsafe_allow_html=True)
+    st.markdown('<div class="gc-h1">实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
+with head_r:
+    if st.button("↻ 立即刷新", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+# ---------- 跑马灯资讯条 ----------
+
+
+@st.fragment(run_every="60s")
+def render_ticker():
+    parts = []
+    for i in load_top_sellers()[:4]:
+        parts.append(f"热销 #{i['rank']} {i['name']} {i['price']['final'] or ''}")
+    for i in load_specials()[:2]:
+        if i["price"]["pct"]:
+            parts.append(f"特惠 {i['price']['pct']}% {i['name']} {i['price']['final']}")
+    ftk = load_free_to_keep()
+    for i in ftk[:3]:
+        parts.append(f"限时免费入库 {i['name']}（原价 {i['price']['original']}）")
+    if not ftk:
+        parts.append("限时免费入库 · 当前无活动，周末再多来看看")
+    seq = "".join(f'<span class="ti"><b>▮</b>{_esc(p)}</span>' for p in parts)
+    st.markdown(
+        f'<div class="gc-ticker"><div class="gc-ticker-track">{seq}{seq}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+render_ticker()
+
+# ---------- 六个榜单（fragment 每 60 秒原地刷新，不丢 tab 状态） ----------
+
+tab_sellers, tab_played, tab_ftk, tab_specials, tab_new, tab_free = st.tabs(
+    ["热销商品", "最热游玩", "限时免费", "特惠专区", "新品上架", "免费游戏"]
 )
 
 
@@ -450,6 +539,14 @@ def render_sellers():
 def render_most_played():
     st.markdown(
         updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS"),
+        unsafe_allow_html=True,
+    )
+
+
+@st.fragment(run_every="60s")
+def render_free_to_keep():
+    st.markdown(
+        updated_line() + grid_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领"),
         unsafe_allow_html=True,
     )
 
@@ -482,6 +579,8 @@ with tab_sellers:
     render_sellers()
 with tab_played:
     render_most_played()
+with tab_ftk:
+    render_free_to_keep()
 with tab_specials:
     render_specials()
 with tab_new:

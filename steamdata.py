@@ -122,6 +122,32 @@ def fetch_search(specials: bool, free: bool = False) -> list[dict]:
     return parse_search_rows(r.json()["results_html"])
 
 
+def fetch_free_to_keep() -> list[dict]:
+    """限时免费入库：原价付费、当前 100% 折扣免费入库的游戏。
+
+    Steam 没有现成榜单，用 search 的 specials=1 与 maxprice=free 的交集，
+    再只留 -100% 折扣行（平时 0~10 个，需要空状态兜底）。
+    """
+    params = {
+        "query": "",
+        "start": 0,
+        "count": 50,
+        "dynamic_data": "",
+        "sort_by": "TopSellers",
+        "supportedlang": "schinese",
+        "l": LANG,
+        "snr": "1_7_7_700_702",
+        "infinite": 1,
+        "cc": CC,
+        "specials": 1,
+        "maxprice": "free",
+    }
+    r = get_client().get(f"{STEAM_STORE}/search/results/", params=params)
+    r.raise_for_status()
+    rows = parse_search_rows(r.json()["results_html"])
+    return [it for it in rows if it["price"]["pct"] == -100]
+
+
 def fetch_new_releases() -> list[dict]:
     """新品上架：商店精选每周新品（featuredcategories，30 条，含价格/封面）。"""
     r = get_client().get(f"{STEAM_STORE}/api/featuredcategories/", params={"cc": CC, "l": LANG})
