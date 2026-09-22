@@ -82,14 +82,16 @@ new_cache = TTLCache(600)
 
 app = FastAPI(title="Steam 实时游戏榜单")
 
-# 静态资源版本号 = 文件 mtime，改前端即自动失效浏览器缓存
-STATIC_VER = str(int(max(os.path.getmtime(os.path.join("static", f)) for f in ("app.js", "steam.css"))))
+
+def _static_ver() -> str:
+    """静态资源版本号 = 文件 mtime（每次请求实时计算），改前端即自动失效缓存。"""
+    return str(int(max(os.path.getmtime(os.path.join("static", f)) for f in ("app.js", "steam.css", "index.html"))))
 
 
 @app.get("/", include_in_schema=False)
 async def index():
     with open(os.path.join("static", "index.html"), encoding="utf-8") as f:
-        return HTMLResponse(f.read().replace("__VER__", STATIC_VER))
+        return HTMLResponse(f.read().replace("__VER__", _static_ver()))
 
 
 @app.middleware("http")

@@ -280,7 +280,7 @@ a { color: #e8eaf0; }
 /* 最热游玩行 */
 .gc-thead, .gc-row {
   display: grid;
-  grid-template-columns: 64px 156px minmax(0,1fr) 110px 110px 70px;
+  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px 96px;
   gap: 16px; align-items: center; padding: 8px 6px;
 }
 .gc-thead {
@@ -337,6 +337,8 @@ a { color: #e8eaf0; }
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
 .gc-row.simple .price-col .gc-price { font-size: 14px; }
+.gc-row:not(.simple) .price-col .gc-price,
+.gc-row:not(.simple) .price-col .gc-tag .final { font-family: var(--gc-mono); font-size: 13px; }
 
 /* 空状态 */
 .gc-empty { padding: 52px 0 42px; text-align: center; color: #98a0b5; }
@@ -365,6 +367,7 @@ a { color: #e8eaf0; }
   .gc-row, .gc-row.simple { grid-template-columns: 34px 116px minmax(0,1fr) auto; gap: 11px; }
   .gc-row img { width: 116px; }
   .gc-row .peak, .gc-row .delta { display: none; }
+  .gc-row:not(.simple) .price-col { display: none; }
   .gc-row .pnum { font-size: 15px; }
   .gc-nav a:not(.gc-install) { display: none; }
   [data-baseweb="tab-list"] { flex-wrap: wrap; }
@@ -522,22 +525,16 @@ def row_html(it, stats):
                 f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
                 f'<span><div class="gname">{_esc(it["name"])}</div></span>'
                 f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
-    p = it.get("price") or {}
-    mini = ""
-    if p.get("final"):
-        if p.get("pct"):
-            mini = f'<span class="p pct">{p["pct"]}% {_esc(p["final"])}</span>'
-        else:
-            mini = f'<span class="p">{_esc(p["final"])}</span>'
     genres = " / ".join(it.get("genres") or [])
-    sub = (f'<span class="genre">{_esc(genres)}{mini}</span>' if (genres or mini) else "")
+    sub = (f'<span class="genre">{_esc(genres)}</span>' if genres else "")
     return (f'<a class="gc-row" href="{_esc(it["url"])}" target="_blank">'
             f'<span class="rank">{it["rank"]}</span>'
             f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
             f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
             f'<span class="pnum">{_fmt(it.get("players"))}</span>'
             f'<span class="peak">{_fmt(it.get("peak"))}</span>'
-            f'{delta_html(it)}</a>')
+            f'{delta_html(it)}'
+            f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
 
 
 def rows_html(items, title, sub, stats=False):

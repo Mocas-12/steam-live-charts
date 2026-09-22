@@ -268,7 +268,7 @@ h1 {
 
 .rows-head, .row {
   display: grid;
-  grid-template-columns: 64px 156px minmax(0,1fr) 110px 110px 70px;
+  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px 96px;
   gap: 16px; align-items: center; padding: 8px 6px;
 }
 .rows-head {
@@ -326,10 +326,12 @@ h1 {
 .rows-head.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .rows-head.simple .r { text-align: right; }
 .row.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
-.row.simple .price-col {
+.row .price-col {
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
 .row.simple .price-col .price-plain { font-size: 14px; }
+.row:not(.simple) .price-col .price-plain,
+.row:not(.simple) .price-col .price-tag .final { font-family: var(--mono); font-size: 13px; }
 
 /* ---------- 空状态 ---------- */
 
@@ -344,7 +346,7 @@ h1 {
 
 @keyframes shimmer { 0% { opacity: .35; } 50% { opacity: .7; } 100% { opacity: .35; } }
 .skel-row {
-  display: grid; grid-template-columns: 56px 156px 1fr 110px 110px 70px;
+  display: grid; grid-template-columns: 64px 156px 1fr 105px 105px 64px 96px;
   gap: 16px; align-items: center; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,.03);
 }
 .skel-row div { height: 16px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); animation: shimmer 1.5s infinite; }
@@ -386,6 +388,7 @@ footer {
   }
   .row img { width: 116px; }
   .row .peak-col, .row .delta-col { display: none; }
+  .row:not(.simple) .price-col { display: none; }
   .row .rank { font-size: 16px; }
   .pnum { font-size: 15px; }
   .nav-links { display: none; }

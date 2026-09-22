@@ -65,25 +65,18 @@ function rowHtml(it, stats) {
     </a>`;
   }
   const genres = it.genres && it.genres.length ? esc(it.genres.join(" / ")) : "";
-  let mini = "";
-  const p = it.price;
-  if (p && p.final) {
-    if (p.pct) mini = `<span class="mini-price has-pct">${p.pct}% ${esc(p.final)}</span>`;
-    else if (p.free) mini = '<span class="free">免费开玩</span>';
-    else mini = `<span class="mini-price">${esc(p.final)}</span>`;
-  }
-  const sub = [genres, mini].filter(Boolean).join("");
   return `<a class="row" href="${esc(it.url)}" target="_blank" rel="noopener">
     <span class="rank">${it.rank}</span>
     <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
          onerror="this.style.visibility='hidden'">
     <span class="gcol">
       <span class="gname">${esc(it.name)}</span>
-      ${sub ? `<span class="genre-line">${sub}</span>` : ""}
+      ${genres ? `<span class="genre-line">${genres}</span>` : ""}
     </span>
     <span class="pnum">${fmt(it.players)}</span>
     <span class="peak-col peak-num">${fmt(it.peak)}</span>
     <span class="delta-col">${deltaHtml(it)}</span>
+    <span class="price-col">${priceRowHtml(it.price)}</span>
   </a>`;
 }
 
@@ -91,7 +84,7 @@ function rowsHeadHtml(stats) {
   if (stats) {
     return ('<div class="rows-head"><span class="ctr">排名</span><span>游戏</span>'
       + '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-      + '<span class="ctr">周变化</span></div>');
+      + '<span class="ctr">周变化</span><span class="r">价格</span></div>');
   }
   return ('<div class="rows-head simple"><span class="ctr">排名</span><span>游戏</span>'
     + '<span></span><span class="r">价格</span></div>');
