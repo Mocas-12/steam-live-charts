@@ -111,17 +111,50 @@ a { color: #e8eaf0; }
 .gc-install span { color: #e8eaf0 !important; }
 .gc-install:hover { background: rgba(255,255,255,.12); color: #fff !important; }
 
-/* 侧边水印 */
+/* 侧边实时数据卡 */
 .gc-rail {
-  position: fixed; top: 50%; transform: translateY(-50%); z-index: 5;
-  writing-mode: vertical-rl; font-family: var(--gc-mono);
-  font-size: 10px; letter-spacing: 6px; color: #1f232c;
-  user-select: none; pointer-events: none; text-transform: uppercase;
+  position: fixed; top: 78px; z-index: 5; width: 172px;
+  background: rgba(255,255,255,.025);
+  border: 1px solid var(--gc-line);
+  border-radius: 14px; padding: 14px;
+  user-select: none;
 }
-.gc-rail .volt { color: var(--gc-gold); opacity: .5; }
-.gc-rail.left { left: calc(50% - 550px - 58px); }
-.gc-rail.right { right: calc(50% - 550px - 58px); }
-@media (max-width: 1340px) { .gc-rail { display: none; } }
+.gc-rail.left { left: calc(50% - 550px - 192px); }
+.gc-rail.right { right: calc(50% - 550px - 192px); }
+@media (max-width: 1460px) { .gc-rail { display: none; } }
+
+.gc-rail .rail-title {
+  font-family: var(--gc-mono); font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  color: #6b7285 !important; text-transform: uppercase; margin-bottom: 8px;
+}
+.gc-rail .rail-loading { font-family: var(--gc-mono); font-size: 11px; color: #6b7285; }
+
+.gc-rail .rrow {
+  display: flex; align-items: center; gap: 8px; padding: 7px 0;
+  text-decoration: none !important; border-top: 1px solid rgba(255,255,255,.04);
+}
+.gc-rail .rrow:first-of-type { border-top: none; }
+.gc-rail .rrow .rnum {
+  font-family: var(--gc-mono); font-size: 12px; font-weight: 800; width: 22px; flex: none;
+}
+.gc-rail .rrow img { width: 52px; height: 24px; object-fit: cover; border-radius: 4px; flex: none; }
+.gc-rail .rrow .rmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gc-rail .rrow .rname {
+  font-size: 11px; color: #e8eaf0 !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-rail .rrow .rplayers {
+  font-family: var(--gc-mono); font-size: 10px; color: #98a0b3 !important;
+}
+.gc-rail .rrow:hover .rname { color: var(--gc-gold) !important; }
+
+.gc-rail .stat { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.04); }
+.gc-rail .stat:first-of-type { border-top: none; padding-top: 2px; }
+.gc-rail .stat .big {
+  font-family: var(--gc-mono); font-size: 21px; font-weight: 800; color: #fff !important;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.gc-rail .stat .lbl { font-size: 10.5px; color: #6b7285 !important; margin-top: 2px; }
 
 /* 标题区 */
 .gc-overline {
@@ -340,14 +373,35 @@ a { color: #e8eaf0; }
 
 st.markdown(CSS, unsafe_allow_html=True)
 
-# 侧边水印（宽屏装饰）
-st.markdown(
-    """
-<div class="gc-rail left">GAMECHARTS <span class="volt">▮</span> REALTIME GAME LEADERBOARDS</div>
-<div class="gc-rail right">DATA · STEAM OFFICIAL API <span class="volt">▮</span> REFRESH 60S</div>
-""",
-    unsafe_allow_html=True,
-)
+# ---------- 侧边实时数据卡 ----------
+
+
+@st.fragment(run_every="60s")
+def render_rails():
+    items = load_most_played()
+    total = sum(i.get("players") or 0 for i in items)
+    medals = ["var(--gc-gold)", "#d7e0f0", "#e89a6b"]
+    rows = "".join(
+        f'<a class="rrow" href="{_esc(i["url"])}" target="_blank">'
+        f'<span class="rnum" style="color:{medals[idx]}">#{i["rank"]}</span>'
+        f'<img src="{_esc(i["image"])}" loading="lazy">'
+        f'<span class="rmeta">'
+        f'<span class="rname">{_esc(i["name"])}</span>'
+        f'<span class="rplayers">{_fmt(i.get("players"))} 人在线</span>'
+        f'</span></a>'
+        for idx, i in enumerate(items[:3])
+    )
+    t = time.strftime("%H:%M:%S", time.localtime())
+    st.markdown(
+        f'''
+<div class="gc-rail left"><div class="rail-title">▍此刻在线 TOP 3</div>{rows}</div>
+<div class="gc-rail right"><div class="rail-title">▍REALTIME STATS</div>
+  <div class="stat"><div class="big">{_fmt(total)}</div><div class="lbl">TOP100 总在线人数</div></div>
+  <div class="stat"><div class="big">{len(items)}</div><div class="lbl">监控游戏数</div></div>
+  <div class="stat"><div class="big">{t}</div><div class="lbl">数据更新时间</div></div>
+</div>''',
+        unsafe_allow_html=True,
+    )
 
 # 顶栏 + 跑马灯
 st.markdown(
@@ -515,6 +569,8 @@ with head_r:
 if st.session_state.pop("refreshing", False):
     st.toast("正在刷新全部榜单，最热游玩可能需要十几秒…", icon="🔄")
 
+render_rails()
+
 # ---------- 跑马灯资讯条 ----------
 
 
@@ -542,8 +598,8 @@ render_ticker()
 
 # ---------- 六个榜单（fragment 每 60 秒原地刷新，不丢 tab 状态） ----------
 
-tab_sellers, tab_played, tab_ftk, tab_specials, tab_new, tab_free = st.tabs(
-    ["热销商品", "最热游玩", "限时免费", "特惠专区", "新品上架", "免费游戏"]
+tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk = st.tabs(
+    ["最热游玩", "热销商品", "特惠专区", "新品上架", "免费游戏", "限时免费"]
 )
 
 

@@ -91,18 +91,52 @@ body {
 }
 .install-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff !important; }
 
-/* ---------- 侧边水印（宽屏装饰） ---------- */
+/* ---------- 侧边实时数据卡（宽屏装饰） ---------- */
 
 .rail {
-  position: fixed; top: 50%; transform: translateY(-50%); z-index: 5;
-  writing-mode: vertical-rl; font-family: var(--mono);
-  font-size: 10px; letter-spacing: 6px; color: #1f232c;
-  user-select: none; pointer-events: none; text-transform: uppercase;
+  position: fixed; top: 78px; z-index: 5; width: 172px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px;
+  user-select: none;
 }
-.rail .volt { color: var(--gold); opacity: .5; }
-.rail.left { left: calc(50% - 550px - 58px); }
-.rail.right { right: calc(50% - 550px - 58px); }
-@media (max-width: 1340px) { .rail { display: none; } }
+.rail.left { left: calc(50% - 550px - 192px); }
+.rail.right { right: calc(50% - 550px - 192px); }
+@media (max-width: 1460px) { .rail { display: none; } }
+
+.rail .rail-title {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  color: var(--dim); text-transform: uppercase; margin-bottom: 8px;
+}
+.rail .rail-title::first-letter { color: var(--gold); }
+.rail .rail-loading { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+.rail .rrow {
+  display: flex; align-items: center; gap: 8px; padding: 7px 0;
+  text-decoration: none; border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+.rail .rrow:first-of-type { border-top: none; }
+.rail .rrow .rnum {
+  font-family: var(--mono); font-size: 12px; font-weight: 800; width: 22px; flex: none;
+}
+.rail .rrow img { width: 52px; height: 24px; object-fit: cover; border-radius: 4px; flex: none; }
+.rail .rrow .rmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rail .rrow .rname {
+  font-size: 11px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rail .rrow .rplayers {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+}
+.rail .rrow:hover .rname { color: var(--gold); }
+
+.rail .stat { padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.04); }
+.rail .stat:first-of-type { border-top: none; padding-top: 2px; }
+.rail .stat .big {
+  font-family: var(--mono); font-size: 21px; font-weight: 800; color: #fff;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.rail .stat .lbl { font-size: 10.5px; color: var(--dim); margin-top: 2px; }
 
 /* ---------- 页头 ---------- */
 

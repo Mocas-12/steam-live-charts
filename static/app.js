@@ -10,7 +10,7 @@ const API = {
 };
 
 const state = {
-  active: "top-sellers",
+  active: "most-played",
   data: {},      // tab -> items
   fetchedAt: {}, // tab -> Date.now()
   loading: {},   // tab -> bool
@@ -189,9 +189,35 @@ async function updateTicker() {
     const seq = parts.map(p => `<span class="ti"><b>▮</b>${esc(p)}</span>`).join("");
     const track = $("#ticker-track");
     if (track) track.innerHTML = seq + seq; // 两份内容首尾相接实现无缝循环
+    renderRails(mp);
   } catch (e) { /* 静默 */ } finally {
     tickerBusy = false;
   }
+}
+
+/* ---------- 侧边实时数据卡 ---------- */
+
+function renderRails(mp) {
+  const left = $("#rail-left");
+  const right = $("#rail-right");
+  if (!left || !right) return;
+  const items = mp.items || [];
+  const total = items.reduce((a, i) => a + (i.players || 0), 0);
+  const medals = ["var(--gold)", "#d7e0f0", "#e89a6b"];
+  left.innerHTML = '<div class="rail-title">▍此刻在线 TOP 3</div>' + items.slice(0, 3).map((i, idx) =>
+    `<a class="rrow" href="${esc(i.url)}" target="_blank" rel="noopener">
+       <span class="rnum" style="color:${medals[idx]}">#${i.rank}</span>
+       <img src="${esc(i.image)}" loading="lazy">
+       <span class="rmeta">
+         <span class="rname">${esc(i.name)}</span>
+         <span class="rplayers">${fmt(i.players)} 人在线</span>
+       </span>
+     </a>`).join("");
+  const t = new Date(mp.meta.updated_at * 1000).toLocaleTimeString("zh-CN", { hour12: false });
+  right.innerHTML = '<div class="rail-title">▍REALTIME STATS</div>'
+    + `<div class="stat"><div class="big">${fmt(total)}</div><div class="lbl">TOP100 总在线人数</div></div>`
+    + `<div class="stat"><div class="big">${items.length}</div><div class="lbl">监控游戏数</div></div>`
+    + `<div class="stat"><div class="big">${t}</div><div class="lbl">数据更新时间</div></div>`;
 }
 
 function switchTab(name) {
@@ -246,6 +272,7 @@ $("#refresh-btn").addEventListener("click", async () => {
 
 $("#retry-btn").addEventListener("click", () => load(state.active));
 
-switchTab("top-sellers");
-load("top-sellers");
+switchTab("most-played");
+load("most-played");
+updateTicker();
 updateTicker();

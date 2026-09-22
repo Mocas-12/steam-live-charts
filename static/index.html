@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>实时游戏榜单 · GAMECHARTS</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0b0e'/><rect x='8' y='8' width='7' height='16' rx='1' fill='%23d6ff3f' transform='skewX(-8)' transform-origin='16 16'/></svg>">
-<link rel="stylesheet" href="steam.css?v=6">
+<link rel="stylesheet" href="steam.css?v=__VER__">
 </head>
 <body>
 
@@ -32,8 +32,8 @@
   </div>
 </nav>
 
-<div class="rail left">GAMECHARTS <span class="volt">▮</span> REALTIME GAME LEADERBOARDS</div>
-<div class="rail right">DATA · STEAM OFFICIAL API <span class="volt">▮</span> REFRESH 60S</div>
+<div class="rail left" id="rail-left"><div class="rail-title">▍此刻在线 TOP 3</div><div class="rail-loading">加载中…</div></div>
+<div class="rail right" id="rail-right"><div class="rail-title">▍REALTIME STATS</div><div class="rail-loading">加载中…</div></div>
 
 <header class="page-head">
   <div class="wrap">
@@ -49,12 +49,12 @@
       </div>
     </div>
     <nav class="tabs" id="tabs">
-      <button class="tab active" data-tab="top-sellers">热销商品</button>
-      <button class="tab" data-tab="most-played">最热游玩</button>
-      <button class="tab" data-tab="free-to-keep">限时免费</button>
+      <button class="tab active" data-tab="most-played">最热游玩</button>
+      <button class="tab" data-tab="top-sellers">热销商品</button>
       <button class="tab" data-tab="specials">特惠专区</button>
       <button class="tab" data-tab="new-releases">新品上架</button>
       <button class="tab" data-tab="free-games">免费游戏</button>
+      <button class="tab" data-tab="free-to-keep">限时免费</button>
     </nav>
   </div>
 </header>
@@ -65,18 +65,14 @@
     <button id="retry-btn">重试</button>
   </div>
 
-  <section class="panel" id="panel-top-sellers">
-    <div class="section-title">热门畅销商品 <span class="section-sub">TOP 50 · BY UNITS SOLD</span></div>
-    <div class="rows" id="list-top-sellers"></div>
+  <section class="panel" id="panel-most-played">
+    <div class="section-title">最热游玩游戏 <span class="section-sub">TOP 100 · BY CURRENT PLAYERS</span></div>
+    <div class="rows" id="list-most-played"></div>
   </section>
 
-  <section class="panel" id="panel-most-played" hidden>
-    <div class="section-title">最热游玩游戏 <span class="section-sub">TOP 100 · BY CURRENT PLAYERS</span></div>
-    <div class="rows-head">
-      <span class="ctr">#</span><span>游戏</span>
-      <span></span><span class="r">当前在线</span><span class="r">今日峰值</span><span class="ctr">周变化</span>
-    </div>
-    <div class="rows" id="list-most-played"></div>
+  <section class="panel" id="panel-top-sellers" hidden>
+    <div class="section-title">热门畅销商品 <span class="section-sub">TOP 50 · BY UNITS SOLD</span></div>
+    <div class="rows" id="list-top-sellers"></div>
   </section>
 
   <section class="panel" id="panel-free-to-keep" hidden>
@@ -111,6 +107,6 @@
   </div>
 </footer>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=__VER__"></script>
 </body>
 </html>

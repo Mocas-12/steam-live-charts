@@ -12,11 +12,13 @@
 """
 
 import asyncio
+import os
 import re
 import time
 
 import httpx
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from steamdata import (
@@ -79,6 +81,15 @@ name_cache = TTLCache(24 * 3600)
 new_cache = TTLCache(600)
 
 app = FastAPI(title="Steam 实时游戏榜单")
+
+# 静态资源版本号 = 文件 mtime，改前端即自动失效浏览器缓存
+STATIC_VER = str(int(max(os.path.getmtime(os.path.join("static", f)) for f in ("app.js", "steam.css"))))
+
+
+@app.get("/", include_in_schema=False)
+async def index():
+    with open(os.path.join("static", "index.html"), encoding="utf-8") as f:
+        return HTMLResponse(f.read().replace("__VER__", STATIC_VER))
 
 
 @app.middleware("http")
