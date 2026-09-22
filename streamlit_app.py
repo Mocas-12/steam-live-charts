@@ -333,7 +333,7 @@ a { color: #e8eaf0; }
 .gc-thead.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .gc-thead.simple .r { text-align: right; }
 .gc-row.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
-.gc-row.simple .price-col {
+.gc-row .price-col {
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
 .gc-row.simple .price-col .gc-price { font-size: 14px; }
@@ -356,6 +356,19 @@ a { color: #e8eaf0; }
   width: 7px; height: 7px; border-radius: 50%; background: var(--gc-up);
   box-shadow: 0 0 8px rgba(111,220,140,.7); animation: gc-pulse 1.8s infinite;
 }
+
+@keyframes gc-blink { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+.gc-loading {
+  display: flex; align-items: center; gap: 6px; padding: 22px 4px;
+  font-family: var(--gc-mono); font-size: 12px; color: #98a0b3;
+}
+.gc-loading i {
+  width: 9px; height: 18px; margin-right: 2px; border-radius: 2px;
+  background: var(--gc-gold); transform: skewX(-12deg);
+  animation: gc-blink 1s infinite;
+}
+.gc-loading i:nth-child(2) { animation-delay: .18s; }
+.gc-loading i:nth-child(3) { animation-delay: .36s; }
 
 .gc-footer {
   color: #6b7285 !important; font-size: 12.5px; line-height: 1.8;
@@ -429,30 +442,30 @@ st.markdown(
 # ---------- 数据 ----------
 
 
-@st.cache_data(ttl=120, show_spinner="正在从 Steam 拉取热销榜…")
+@st.cache_data(ttl=120, show_spinner=False)
 def load_top_sellers():
     items = [it for it in steamdata.fetch_search(False) if it["price"]["final"]]
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
 
 
-@st.cache_data(ttl=120, show_spinner="正在从 Steam 拉取特惠榜…")
+@st.cache_data(ttl=120, show_spinner=False)
 def load_specials():
     items = [it for it in steamdata.fetch_search(True) if it["price"]["final"]]
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
 
 
-@st.cache_data(ttl=120, show_spinner="正在扫描限时免费入库活动…")
+@st.cache_data(ttl=120, show_spinner=False)
 def load_free_to_keep():
     return [{**it, "rank": i + 1} for i, it in enumerate(steamdata.fetch_free_to_keep())]
 
 
-@st.cache_data(ttl=600, show_spinner="正在拉取新品上架榜…")
+@st.cache_data(ttl=600, show_spinner=False)
 def load_new_releases():
     items = [it for it in steamdata.fetch_new_releases() if it["price"]["final"]]
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
 
 
-@st.cache_data(ttl=120, show_spinner="正在拉取免费游戏榜…")
+@st.cache_data(ttl=120, show_spinner=False)
 def load_free_games():
     items = [
         it for it in steamdata.fetch_search(False, free=True)
@@ -461,7 +474,7 @@ def load_free_games():
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
 
 
-@st.cache_data(ttl=60, show_spinner="正在逐款查询 Top100 实时在线人数（首载约 10-20 秒）…")
+@st.cache_data(ttl=60, show_spinner=False)
 def load_most_played():
     return steamdata.build_most_played()
 
@@ -491,6 +504,12 @@ def price_row_html(p):
     if p.get("free"):
         return '<span class="gc-price free">免费开玩</span>'
     return f'<span class="gc-price">{_esc(p["final"])}</span>'
+
+
+LOADING_PANEL = (
+    '<div class="gc-panel"><div class="gc-loading">'
+    '<i></i><i></i><i></i>正在从 Steam 同步最新数据…</div></div>'
+)
 
 
 EMPTY_HTML = (
@@ -613,7 +632,9 @@ tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk = st.tabs(
 
 @st.fragment(run_every="60s")
 def render_sellers():
-    st.markdown(
+    box = st.empty()
+    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    box.markdown(
         updated_line() + rows_html(load_top_sellers(), "热门畅销商品", "TOP 50 · BY UNITS SOLD"),
         unsafe_allow_html=True,
     )
@@ -621,7 +642,9 @@ def render_sellers():
 
 @st.fragment(run_every="60s")
 def render_most_played():
-    st.markdown(
+    box = st.empty()
+    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    box.markdown(
         updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True),
         unsafe_allow_html=True,
     )
@@ -629,7 +652,9 @@ def render_most_played():
 
 @st.fragment(run_every="60s")
 def render_free_to_keep():
-    st.markdown(
+    box = st.empty()
+    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    box.markdown(
         updated_line() + rows_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领"),
         unsafe_allow_html=True,
     )
@@ -637,7 +662,9 @@ def render_free_to_keep():
 
 @st.fragment(run_every="60s")
 def render_specials():
-    st.markdown(
+    box = st.empty()
+    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    box.markdown(
         updated_line() + rows_html(load_specials(), "特惠专区", "TOP 50 · HOT DEALS"),
         unsafe_allow_html=True,
     )
@@ -645,7 +672,9 @@ def render_specials():
 
 @st.fragment(run_every="60s")
 def render_new():
-    st.markdown(
+    box = st.empty()
+    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    box.markdown(
         updated_line() + rows_html(load_new_releases(), "新品上架", "TOP 30 · NEW RELEASES"),
         unsafe_allow_html=True,
     )
@@ -653,7 +682,9 @@ def render_new():
 
 @st.fragment(run_every="60s")
 def render_free():
-    st.markdown(
+    box = st.empty()
+    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    box.markdown(
         updated_line() + rows_html(load_free_games(), "免费游戏", "TOP 50 · FREE TO PLAY"),
         unsafe_allow_html=True,
     )
