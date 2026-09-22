@@ -33,7 +33,7 @@ section[data-testid="stVerticalBlock"] { gap: .45rem; }
 .stApp {
   background: linear-gradient(180deg, #0a0b0f 0%, #08090c 320px) fixed;
 }
-body, .stApp, p, span {
+body, .stApp, p {
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
   color: #f2f4f8;
 }
@@ -67,10 +67,11 @@ a { color: #d6ff3f; }
 .gc-ticker:hover .gc-ticker-track { animation-play-state: paused; }
 @keyframes gc-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .gc-ticker .ti {
+  color: #0a0b0e !important;
   font-family: var(--gc-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 1px;
   padding: 0 22px; text-transform: uppercase;
 }
-.gc-ticker .ti b { color: #3e5200; margin-right: 8px; }
+.gc-ticker .ti b { color: #3e5200 !important; margin-right: 8px; }
 
 /* 顶栏 */
 .gc-nav {
@@ -89,7 +90,7 @@ a { color: #d6ff3f; }
 .gc-logo-word span { color: var(--gc-volt); }
 .gc-logo-sub {
   font-family: var(--gc-mono); font-size: 10px; font-weight: 700; letter-spacing: 3px;
-  color: #0a0b0e; background: var(--gc-volt); padding: 3px 8px; transform: skewX(-12deg);
+  color: #0a0b0e !important; background: var(--gc-volt); padding: 3px 8px; transform: skewX(-12deg);
 }
 .gc-nav .spacer { margin-right: auto; }
 .gc-nav a { color: #9aa2b5; text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: 2px; padding: 6px 10px; border-radius: 3px; }
@@ -98,7 +99,7 @@ a { color: #d6ff3f; }
   color: #0a0b0e !important; font-size: 12px; font-weight: 900; letter-spacing: 1px;
   padding: 9px 16px; background: var(--gc-volt); transform: skewX(-12deg);
 }
-.gc-install span { display: inline-block; transform: skewX(12deg); }
+.gc-install span { color: #0a0b0e !important; display: inline-block; transform: skewX(12deg); }
 
 /* 侧边水印 */
 .gc-rail {
