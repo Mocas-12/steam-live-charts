@@ -2,7 +2,7 @@
 
 <img src="./logo.svg" width="96" alt="Steam Live Charts Logo" />
 
-# 🎮 Steam Live Charts (Steam 实时榜单)
+# Steam Live Charts
 
 **实时 Steam 游戏榜单 —— 热销商品 · 最热游玩 · 特惠专区，每 60 秒自动刷新**
 

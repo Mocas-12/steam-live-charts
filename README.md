@@ -2,7 +2,7 @@
 
 <img src="./logo.svg" width="96" alt="Steam Live Charts Logo" />
 
-# 🎮 Steam Live Charts (Steam 实时榜单)
+# Steam Live Charts
 
 **Real-time Steam leaderboards — Top Sellers · Most Played · Specials, auto-refreshed every 60 seconds**
 
