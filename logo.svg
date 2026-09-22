@@ -1,21 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2a475e"/>
-      <stop offset="1" stop-color="#1b2838"/>
+      <stop offset="0" stop-color="#1c1f27"/>
+      <stop offset="1" stop-color="#0d0f13"/>
     </linearGradient>
-    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8ad4f8"/>
-      <stop offset="1" stop-color="#4a9fd8"/>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4dc95"/>
+      <stop offset="1" stop-color="#d9a93f"/>
     </linearGradient>
   </defs>
-  <rect width="96" height="96" rx="20" fill="url(#bg)"/>
-  <rect x="0.5" y="0.5" width="95" height="95" rx="19.5" fill="none" stroke="#66c0f4" stroke-opacity="0.35"/>
-  <!-- leaderboard podium -->
-  <rect x="18" y="46" width="16" height="30" rx="3" fill="url(#bar)" opacity="0.5"/>
-  <rect x="40" y="28" width="16" height="48" rx="3" fill="url(#bar)"/>
-  <rect x="62" y="52" width="16" height="24" rx="3" fill="url(#bar)" opacity="0.3"/>
-  <!-- live pulse -->
-  <circle cx="70" cy="24" r="5" fill="#75b022"/>
-  <circle cx="70" cy="24" r="9" fill="none" stroke="#75b022" stroke-opacity="0.4" stroke-width="2"/>
+  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="93" height="93" rx="20.5" fill="none" stroke="#e8c268" stroke-opacity="0.28" stroke-width="1.5"/>
+  <!-- 排位领奖台 -->
+  <rect x="19" y="50" width="15" height="26" rx="3.5" fill="#8f9cb5"/>
+  <rect x="40.5" y="34" width="15" height="42" rx="3.5" fill="url(#gold)"/>
+  <rect x="62" y="57" width="15" height="19" rx="3.5" fill="#b57b52"/>
+  <!-- 金榜之星 -->
+  <path d="M48 17 l2.4 6.2 6.2 2.4 -6.2 2.4 -2.4 6.2 -2.4 -6.2 -6.2 -2.4 6.2 -2.4 Z" fill="#f4dc95"/>
+  <!-- live 心跳点 -->
+  <circle cx="76" cy="21" r="4" fill="#6fdc8c"/>
 </svg>

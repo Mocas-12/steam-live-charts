@@ -35,10 +35,11 @@
 
 ## ✨ Features
 
-- 🏆 **Six live leaderboards**: Top Sellers (Top 50) · Most Played (Top 100) · Free To Keep (100%-off giveaways) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50)
-- 🕹️ **Cinematic theme**: content-first dark design — cover art is the hero, with soft rounded cards, gold accents, metal rank numerals (gold / silver / bronze) for the top 3, monospace stat digits, a live data ticker and side rails on wide screens; deliberately *not* a Steam clone
+- 🏆 **Six live leaderboards** (Most Played opens by default): Most Played (Top 100) · Top Sellers (Top 50) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50) · Free To Keep (100%-off giveaways, empty-state when no promo is live)
+- 🕹️ **Cinematic theme**: content-first dark design — cover art is the hero, with soft rounded cards, gold accents, metal rank numerals (gold / silver / bronze) for the top 3 and monospace stat digits; deliberately *not* a Steam clone
+- 📊 **Live ticker & stat cards**: a marquee of hot items across the top; on wide screens, side cards show the playing-now TOP 3, TOP100 total online and refresh time
 - 👥 **Real-time player counts**: every game is queried individually against Steam's official stats API — the Most Played board is re-ranked by *current* concurrent players and shows today's peak plus weekly rank movement (▲ up / ▼ down / NEW)
-- 💰 **CNY prices & deal tags**: skewed volt discount pills with struck-through original prices
+- 💰 **CNY prices & deal tags**: soft green discount pills with struck-through original prices
 - 🀄 **Simplified Chinese**: localized titles, genres and cover art (`cc=cn&l=schinese`)
 - 🔄 **Auto refresh every 60s**: countdown + manual refresh on the FastAPI site; `st.fragment` in-place rerun on Streamlit — neither loses your current tab
 - 🧯 **Resilient fallbacks**: delisted / region-locked games (e.g. Rocket League) get their names from Steam Community pages; stale cache is served when upstream hiccups
