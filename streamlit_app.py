@@ -519,17 +519,19 @@ def delta_html(it):
 
 def row_html(it, stats):
     if not stats:
-        # 价格类榜单：# | 封面 | 游戏 | 价格
+        # 价格类榜单：# | 封面 | 游戏（发售日期/类型）| 价格
+        meta = " · ".join(x for x in [it.get("released"), " / ".join(it.get("genres") or [])] if x)
+        sub = f'<span class="genre">{_esc(meta)}</span>' if meta else ""
         return (f'<a class="gc-row simple" href="{_esc(it["url"])}" target="_blank">'
                 f'<span class="rank">{it["rank"]}</span>'
-                f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
-                f'<span><div class="gname">{_esc(it["name"])}</div></span>'
+                f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=&quot;hidden&quot;">'
+                f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
                 f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
     genres = " / ".join(it.get("genres") or [])
     sub = (f'<span class="genre">{_esc(genres)}</span>' if genres else "")
     return (f'<a class="gc-row" href="{_esc(it["url"])}" target="_blank">'
             f'<span class="rank">{it["rank"]}</span>'
-            f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
+            f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=&quot;hidden&quot;">'
             f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
             f'<span class="pnum">{_fmt(it.get("players"))}</span>'
             f'<span class="peak">{_fmt(it.get("peak"))}</span>'

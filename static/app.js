@@ -54,13 +54,13 @@ function deltaHtml(it) {
 function rowHtml(it, stats) {
   if (!stats) {
     // 价格类榜单：# | 封面 | 游戏 | 价格
+    const meta = [it.released, (it.genres || []).join(" / ")].filter(Boolean).join(" · ");
+    const sub = meta ? `<span class="genre-line">${esc(meta)}</span>` : "";
     return `<a class="row simple" href="${esc(it.url)}" target="_blank" rel="noopener">
       <span class="rank">${it.rank}</span>
       <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
            onerror="this.style.visibility='hidden'">
-      <span class="gcol">
-        <span class="gname">${esc(it.name)}</span>
-      </span>
+      <span class="gcol"><span class="gname">${esc(it.name)}</span>${sub}</span>
       <span class="price-col">${priceRowHtml(it.price)}</span>
     </a>`;
   }

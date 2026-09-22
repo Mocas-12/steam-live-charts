@@ -9,6 +9,7 @@
 
 import html as htmllib
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
@@ -59,20 +60,53 @@ def price_from_overview(po: dict | None, is_free: bool) -> dict | None:
     }
 
 
-# ---------- 搜索页解析（热销 / 特惠） ----------
+# ---------- 搜索页解析（热销 / 特惠 / 新品 / 免费 / 限时免费） ----------
 
 ROW_RE = re.compile(
-    r'<a href="https://store\.steampowered\.com/app/(\d+)/[^"]*"[^>]*?'
-    r'class="search_result_row[^"]*"(.*?)</a>',
+    r'<a href="https://store\.steampowered\.com/app/(\d+)/[^"]*"[^>]*class="search_result_row[^"]*"',
     re.S,
 )
 
+_tag_map: dict[int, str] | None = None
+_tag_ts = 0.0
+
+
+def get_tag_map() -> dict[int, str]:
+    """StoreTag id → 中文名（24h 缓存，失败时退化为空映射）。"""
+    global _tag_map, _tag_ts
+    if _tag_map is not None and time.monotonic() - _tag_ts < 24 * 3600:
+        return _tag_map
+    try:
+        r = get_client().get(f"{STEAM_STORE}/tagdata/populartags/{LANG}")
+        r.raise_for_status()
+        _tag_map = {int(t["tagid"]): t["name"] for t in r.json()}
+        _tag_ts = time.monotonic()
+    except Exception:
+        if _tag_map is None:
+            _tag_map = {}
+        _tag_ts = time.monotonic()
+    return _tag_map
+
+
+def _clean_price(text: str) -> str | None:
+    t = htmllib.unescape(text).strip().replace(" ", "")
+    if not t:
+        return None
+    if "免费" in t or t.lower() == "free":
+        return "免费开玩"
+    if "¥" in t:
+        t = t.replace(".00", "")
+    return t
+
 
 def parse_search_rows(results_html: str) -> list[dict]:
+    tmap = get_tag_map()
     items = []
     for m in ROW_RE.finditer(results_html):
         aid = int(m.group(1))
-        block = m.group(2)
+        start = m.end()
+        end = results_html.find("</a>", start)
+        block = results_html[start:end]
         title = re.search(r'<span class="title">([^<]+)</span>', block)
         if not title:
             continue
@@ -80,13 +114,25 @@ def parse_search_rows(results_html: str) -> list[dict]:
         orig = re.search(r'class="discount_original_price">\s*([^<]+?)\s*<', block)
         fin = re.search(r'class="discount_final_price[^"]*">\s*([^<]+?)\s*<', block)
         img = re.search(r'<img[^>]+src="([^"]+capsule[^"]+?)"', block)
+        tags = re.search(r'data-ds-tagids="\[([\d,]+)\]"', m.group(0))
+        released = re.search(r'search_released[^>]*>\s*([^<]+?)\s*<', block)
         final = _clean_price(fin.group(1)) if fin else None
+        genres = []
+        if tags:
+            for tid in tags.group(1).split(","):
+                name = tmap.get(int(tid))
+                if name and name not in genres:
+                    genres.append(name)
+                if len(genres) == 3:
+                    break
         items.append(
             {
                 "appid": aid,
                 "name": htmllib.unescape(title.group(1)).strip(),
                 "image": img.group(1) if img else HEADER_IMG.format(aid),
                 "url": STORE_URL.format(aid),
+                "genres": genres,
+                "released": released.group(1).strip() if released else None,
                 "price": {
                     "free": final == "免费开玩",
                     "final": final,
@@ -100,13 +146,13 @@ def parse_search_rows(results_html: str) -> list[dict]:
 
 # ---------- 单项抓取 ----------
 
-def fetch_search(specials: bool, free: bool = False) -> list[dict]:
+def fetch_search(specials: bool = False, free: bool = False, sort: str = "TopSellers") -> list[dict]:
     params = {
         "query": "",
         "start": 0,
         "count": 50,
         "dynamic_data": "",
-        "sort_by": "TopSellers",
+        "sort_by": sort,
         "supportedlang": "schinese",
         "l": LANG,
         "snr": "1_7_7_700_702",
@@ -149,53 +195,17 @@ def fetch_free_to_keep() -> list[dict]:
 
 
 def fetch_new_releases() -> list[dict]:
-    """新品上架：商店精选每周新品（featuredcategories，30 条，含价格/封面）。"""
-    r = get_client().get(f"{STEAM_STORE}/api/featuredcategories/", params={"cc": CC, "l": LANG})
-    r.raise_for_status()
-    items = r.json().get("new_releases", {}).get("items", [])
+    """新品上架：按上架时间排序的最新游戏（50 条，含类型/发售日期/价格）。"""
+    rows = fetch_search(sort="Released_DESC")
     out = []
-    for it in items:
-        try:
-            aid = int(it["id"])
-        except (KeyError, TypeError, ValueError):
+    for it in rows:
+        if not it["price"]["final"]:
             continue
-        pct = it.get("discount_percent") or 0
-        final_cents = it.get("final_price") or 0
-        if final_cents == 0:
-            price = {"free": True, "final": "免费开玩", "original": None, "pct": None}
-        else:
-            price = {
-                "free": False,
-                "final": _clean_price(f"¥{final_cents / 100}"),
-                "original": _clean_price(f"¥{it['original_price'] / 100}") if pct else None,
-                "pct": -pct if pct else None,
-            }
-        out.append(
-            {
-                "appid": aid,
-                "name": str(it.get("name", "")).strip(),
-                "image": it.get("header_image") or HEADER_IMG.format(aid),
-                "url": STORE_URL.format(aid),
-                "price": price,
-            }
-        )
-    return out
-
-
-def fetch_most_played() -> list[dict]:
-    r = get_client().get(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
-    r.raise_for_status()
-    return r.json()["response"]["ranks"]
-
-
-def fetch_ccu(appid: int) -> int:
-    r = get_client().get(
-        f"{STEAM_API}/ISteamUserStats/GetNumberOfCurrentPlayers/v1/", params={"appid": appid}
-    )
-    r.raise_for_status()
-    return r.json()["response"].get("player_count", 0)
-
-
+        low = it["name"].lower()
+        if "demo" in low or "playtest" in low or "试玩" in it["name"] or "测试" in it["name"]:
+            continue  # 过滤 Demo / 试玩版
+        out.append(it)
+    return out[:50]
 def fetch_detail(appid: int) -> dict | None:
     r = get_client().get(
         f"{STEAM_STORE}/api/appdetails", params={"appids": appid, "cc": CC, "l": LANG}

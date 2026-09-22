@@ -156,13 +156,13 @@ async def fetch_name_from_community(appid: int) -> str | None:
     return name
 
 
-async def fetch_search(specials: bool, free: bool = False) -> list[dict]:
+async def fetch_search(specials: bool, free: bool = False, sort: str = "TopSellers") -> list[dict]:
     params = {
         "query": "",
         "start": 0,
         "count": 50,
         "dynamic_data": "",
-        "sort_by": "TopSellers",
+        "sort_by": sort,
         "supportedlang": "schinese",
         "l": LANG,
         "snr": "1_7_7_700_702",
@@ -205,37 +205,17 @@ async def fetch_free_to_keep() -> list[dict]:
 
 
 async def fetch_new_releases() -> list[dict]:
-    """新品上架：商店精选每周新品（featuredcategories，30 条，含价格/封面）。"""
-    r = await client.get(f"{STEAM_STORE}/api/featuredcategories/", params={"cc": CC, "l": LANG})
-    r.raise_for_status()
-    items = r.json().get("new_releases", {}).get("items", [])
+    """新品上架：按上架时间排序的最新游戏（50 条，含类型/发售日期/价格）。"""
+    rows = await fetch_search(sort="Released_DESC")
     out = []
-    for it in items:
-        try:
-            aid = int(it["id"])
-        except (KeyError, TypeError, ValueError):
+    for it in rows:
+        if not it["price"]["final"]:
             continue
-        pct = it.get("discount_percent") or 0
-        final_cents = it.get("final_price") or 0
-        if final_cents == 0:
-            price = {"free": True, "final": "免费开玩", "original": None, "pct": None}
-        else:
-            price = {
-                "free": False,
-                "final": _clean_price(f"¥{final_cents / 100}"),
-                "original": _clean_price(f"¥{it['original_price'] / 100}") if pct else None,
-                "pct": -pct if pct else None,
-            }
-        out.append(
-            {
-                "appid": aid,
-                "name": str(it.get("name", "")).strip(),
-                "image": it.get("header_image") or HEADER_IMG.format(aid),
-                "url": STORE_URL.format(aid),
-                "price": price,
-            }
-        )
-    return out
+        low = it["name"].lower()
+        if "demo" in low or "playtest" in low or "试玩" in it["name"] or "测试" in it["name"]:
+            continue  # 过滤 Demo / 试玩版
+        out.append(it)
+    return out[:50]
 
 
 # ---------- API 路由 ----------
