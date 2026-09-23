@@ -104,11 +104,12 @@ class TestPriceFromOverview:
         out = price_from_overview({"final_formatted": "免费"}, False)
         assert out == {"free": False, "final": "免费开玩", "original": None, "pct": None}
 
-    def test_discount_without_initial_key_raises_keyerror(self):
-        """现状钉子：折扣非零但缺 initial 时实现用 po['initial'] 直接取值会 KeyError。"""
+    def test_discount_without_initial_keeps_original_none(self):
+        """防御：折扣非零但缺 initial（异常 API 数据）时不再抛 KeyError，原价记 None。"""
         po = {"discount_percent": 50, "final_formatted": "¥ 49.50", "final": 4950}
-        with pytest.raises(KeyError):
-            price_from_overview(po, False)
+        assert price_from_overview(po, False) == {
+            "free": False, "final": "¥49.5", "original": None, "pct": -50,
+        }
 
 
 # ---------- _clean_price ----------
@@ -155,9 +156,9 @@ class TestCleanPrice:
         """HTML 实体先反转义：&nbsp; 解出 NBSP，被 strip 与去空格处理掉。"""
         assert _clean_price("¥ 19&nbsp;") == "¥19"
 
-    def test_fullwidth_yen_not_normalized(self):
-        """现状钉子：仅半角 ¥(U+00A5) 被归一化，全角 ￥(U+FFE5) 原样透传。"""
-        assert _clean_price("￥1,234") == "￥1,234"
+    def test_fullwidth_yen_normalized(self):
+        """全角 ￥(U+FFE5) 统一归一化为半角 ¥ 后清洗（真实页面均为半角，此为防御）。"""
+        assert _clean_price("￥1,234") == "¥1234"
 
 
 # ---------- parse_search_rows ----------

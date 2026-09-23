@@ -40,11 +40,12 @@ def price_from_overview(po: dict | None, is_free: bool) -> dict | None:
     if not po:
         return None
     pct = po.get("discount_percent") or 0
+    initial = po.get("initial")
     final = _clean_price(po.get("final_formatted") or "") or _clean_price(f"¥{po.get('final', 0) / 100}")
     return {
         "free": False,
         "final": final,
-        "original": _clean_price(f"¥{po['initial'] / 100}") if pct else None,
+        "original": _clean_price(f"¥{initial / 100}") if pct and initial else None,
         "pct": -pct if pct else None,
     }
 
@@ -78,7 +79,7 @@ def get_tag_map() -> dict[int, str]:
 
 
 def _clean_price(text: str) -> str | None:
-    t = htmllib.unescape(text).strip().replace(" ", "")
+    t = htmllib.unescape(text).strip().replace(" ", "").replace("￥", "¥")
     if not t:
         return None
     if "免费" in t or t.lower() == "free":
