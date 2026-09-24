@@ -95,7 +95,6 @@ function rowHtml(it, stats) {
     <span class="peak-col peak-num">${fmt(it.peak)}</span>
     <span class="delta-col">${deltaHtml(it)}</span>
     <span class="spark-col">${sparkSvg(it.spark)}</span>
-    <span class="price-col">${priceRowHtml(it.price)}</span>
   </a>`;
 }
 
@@ -103,7 +102,7 @@ function rowsHeadHtml(stats) {
   if (stats) {
     return ('<div class="rows-head"><span class="ctr">排名</span><span>游戏</span>'
       + '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-      + '<span class="ctr">周变化</span><span class="ctr">趋势</span><span class="r">价格</span></div>');
+      + '<span class="ctr">周变化</span><span class="ctr">趋势</span></div>');
   }
   return ('<div class="rows-head simple"><span class="ctr">排名</span><span>游戏</span>'
     + '<span></span><span class="r">价格</span></div>');

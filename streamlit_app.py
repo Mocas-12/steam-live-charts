@@ -239,10 +239,10 @@ a { color: #e8eaf0; }
 .gc-price.free { color: var(--gc-up) !important; }
 .gc-strike { color: #6b7285 !important; text-decoration: line-through; font-size: 12px; font-family: var(--gc-mono); }
 
-/* 最热游玩行 */
+/* 最热游玩行（无价格列） */
 .gc-thead, .gc-row {
   display: grid;
-  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px 96px;
+  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px;
   gap: 16px; align-items: center; padding: 8px 6px;
 }
 .gc-thead {
@@ -291,7 +291,7 @@ a { color: #e8eaf0; }
   font-size: 10px; padding: 2px 8px; border-radius: 99px; letter-spacing: 1px;
 }
 
-/* 价格类榜单的横排（无在线数据列） */
+/* 价格类榜单的横排（带价格列） */
 .gc-thead.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .gc-thead.simple .r { text-align: right; }
 .gc-row.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
@@ -299,8 +299,6 @@ a { color: #e8eaf0; }
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
 .gc-row.simple .price-col .gc-price { font-size: 14px; }
-.gc-row:not(.simple) .price-col .gc-price,
-.gc-row:not(.simple) .price-col .gc-tag .final { font-family: var(--gc-mono); font-size: 13px; }
 
 /* 空状态 */
 .gc-empty { padding: 52px 0 42px; text-align: center; color: #98a0b5; }
@@ -342,7 +340,6 @@ a { color: #e8eaf0; }
   .gc-row, .gc-row.simple { grid-template-columns: 34px 116px minmax(0,1fr) auto; gap: 11px; }
   .gc-row img { width: 116px; }
   .gc-row .peak, .gc-row .delta { display: none; }
-  .gc-row:not(.simple) .price-col { display: none; }
   .gc-row .pnum { font-size: 15px; }
   .gc-nav a:not(.gc-install) { display: none; }
   [data-baseweb="tab-list"] { flex-wrap: wrap; }
@@ -516,8 +513,7 @@ def row_html(it, stats):
             f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
             f'<span class="pnum">{_fmt(it.get("players"))}</span>'
             f'<span class="peak">{_fmt(it.get("peak"))}</span>'
-            f'{delta_html(it)}'
-            f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
+            f'{delta_html(it)}</a>')
 
 
 def rows_html(items, title, sub, stats=False, query=""):
@@ -535,7 +531,7 @@ def rows_html(items, title, sub, stats=False, query=""):
     if stats:
         head = ('<div class="gc-thead"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-                '<span class="ctr">周变化</span><span class="r">价格</span></div>')
+                '<span class="ctr">周变化</span></div>')
     else:
         head = ('<div class="gc-thead simple"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">价格</span></div>')
