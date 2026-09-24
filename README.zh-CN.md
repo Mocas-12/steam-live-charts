@@ -166,7 +166,7 @@ Main file path 必须是 `streamlit_app.py`——`app.py` 是 FastAPI，无法�
 
 ## 📄 许可
 
-- 仅供个人/内部使用。本项目为非官方第三方工具，与 Valve Corporation 无从属关系；游戏名称、封面图与价格版权归 Valve 及相应开发商所有。请尊重 Steam 公开接口的频率限制。
+- 本项目以 [MIT 许可证](./LICENSE) 开源。本项目为非官方第三方工具，与 Valve Corporation 无从属关系；游戏名称、封面图与价格版权归 Valve 及相应开发商所有。请尊重 Steam 公开接口的频率限制。
 
 ---
 

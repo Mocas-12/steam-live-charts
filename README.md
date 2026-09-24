@@ -166,7 +166,7 @@ The main file path must be `streamlit_app.py` — `app.py` is FastAPI and cannot
 
 ## 📄 License
 
-- Free for personal/internal use. This is an unofficial third-party tool with no affiliation to Valve Corporation; game names, cover art and prices belong to Valve and the respective developers. Please respect Steam's public API rate limits.
+- Released under the [MIT License](./LICENSE). This is an unofficial third-party tool with no affiliation to Valve Corporation; game names, cover art and prices belong to Valve and the respective developers. Please respect Steam's public API rate limits.
 
 ---
 
