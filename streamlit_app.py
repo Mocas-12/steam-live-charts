@@ -180,6 +180,18 @@ a { color: #e8eaf0; }
 }
 .stButton > button p { font-size: 12.5px; font-weight: 600; letter-spacing: .5px; color: #e8eaf0 !important; }
 
+/* 榜单筛选框（每个 tab 一个，fragment 内输入不丢 tab 状态） */
+.stTextInput { max-width: 260px; margin-bottom: 2px; }
+.stTextInput input {
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid var(--gc-line) !important;
+  border-radius: 10px !important;
+  color: #e8eaf0 !important;
+  font-size: 13px;
+}
+.stTextInput input:focus { border-color: rgba(232,194,104,.55) !important; box-shadow: none !important; }
+.stTextInput input::placeholder { color: #6b7285 !important; }
+
 /* Tab（分段控件） */
 [data-baseweb="tab-list"] {
   display: inline-flex; gap: 2px; border-bottom: none;
@@ -508,9 +520,16 @@ def row_html(it, stats):
             f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
 
 
-def rows_html(items, title, sub, stats=False):
+def rows_html(items, title, sub, stats=False, query=""):
+    if query:  # 榜单内按游戏名筛选（fragment 内的输入，rerun 不丢 tab 状态）
+        items = [it for it in items if query in (it.get("name") or "").lower()]
     if not items:
-        body = EMPTY_HTML
+        if query:  # 被筛空（与限时免费的真·空状态区分）
+            body = (f'<div class="gc-empty"><div class="ghost">0</div>'
+                    f'<div class="etitle">没有匹配「{_esc(query)}」的游戏</div>'
+                    f'<div class="esub">换个关键词，或清空筛选框看完整榜单</div></div>')
+        else:
+            body = EMPTY_HTML
         return (f'<div class="gc-panel"><div class="gc-section">{title}'
                 f'<span class="sub">{sub}</span></div>{body}</div>')
     if stats:
@@ -582,60 +601,72 @@ tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk = st.tabs(
 
 @st.fragment(run_every="60s")
 def render_sellers():
+    q = st.text_input("筛选", key="q_sellers", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     box.markdown(
-        updated_line() + rows_html(load_top_sellers(), "热门畅销商品", "TOP 50 · BY UNITS SOLD"),
+        updated_line() + rows_html(load_top_sellers(), "热门畅销商品", "TOP 50 · BY UNITS SOLD", query=q),
         unsafe_allow_html=True,
     )
 
 
 @st.fragment(run_every="60s")
 def render_most_played():
+    q = st.text_input("筛选", key="q_played", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     box.markdown(
-        updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True),
+        updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True, query=q),
         unsafe_allow_html=True,
     )
 
 
 @st.fragment(run_every="60s")
 def render_free_to_keep():
+    q = st.text_input("筛选", key="q_ftk", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     box.markdown(
-        updated_line() + rows_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领"),
+        updated_line() + rows_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领", query=q),
         unsafe_allow_html=True,
     )
 
 
 @st.fragment(run_every="60s")
 def render_specials():
+    q = st.text_input("筛选", key="q_specials", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     box.markdown(
-        updated_line() + rows_html(load_specials(), "特惠专区", "TOP 50 · HOT DEALS"),
+        updated_line() + rows_html(load_specials(), "特惠专区", "TOP 50 · HOT DEALS", query=q),
         unsafe_allow_html=True,
     )
 
 
 @st.fragment(run_every="60s")
 def render_new():
+    q = st.text_input("筛选", key="q_new", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     box.markdown(
-        updated_line() + rows_html(load_new_releases(), "新品上架", "TOP 30 · NEW RELEASES"),
+        updated_line() + rows_html(load_new_releases(), "新品上架", "TOP 30 · NEW RELEASES", query=q),
         unsafe_allow_html=True,
     )
 
 
 @st.fragment(run_every="60s")
 def render_free():
+    q = st.text_input("筛选", key="q_free", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     box.markdown(
-        updated_line() + rows_html(load_free_games(), "免费游戏", "TOP 50 · FREE TO PLAY"),
+        updated_line() + rows_html(load_free_games(), "免费游戏", "TOP 50 · FREE TO PLAY", query=q),
         unsafe_allow_html=True,
     )
 
