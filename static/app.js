@@ -166,7 +166,7 @@ async function load(tab, { silent = false, force = false } = {}) {
   if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml();
   $("#live-dot").style.background = "var(--link)";
   try {
-    const res = await fetch(API[tab] + (force ? "?force=1" : ""));
+    const res = await fetch(API[tab] + (force ? "?force=1" : ""), { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     state.data[tab] = data.items;
@@ -199,8 +199,8 @@ async function updateTicker() {
   tickerBusy = true;
   try {
     const [ts, mp] = await Promise.all([
-      fetch(API["top-sellers"]).then(r => r.json()),
-      fetch(API["most-played"]).then(r => r.json()),
+      fetch(API["top-sellers"], { cache: "no-store" }).then(r => r.json()),
+      fetch(API["most-played"], { cache: "no-store" }).then(r => r.json()),
     ]);
     const parts = [];
     const total = (mp.items || []).reduce((a, i) => a + (i.players || 0), 0);

@@ -133,10 +133,18 @@ async def index():
 
 @app.middleware("http")
 async def no_cache_static(request, call_next):
-    """静态资源禁用启发式缓存（保留 Etag 协商），改前端立刻生效。"""
+    """静态资源与 API 响应都禁用启发式缓存。
+
+    API JSON 不带缓存头时 Chromium 会启发式缓存（实测无视 fetch 的 no-store），
+    60s 自动刷新会一直拿到旧数据——/api/* 必须显式 no-cache。
+    """
     response = await call_next(request)
     path = request.url.path
-    if path == "/" or path.endswith((".css", ".js", ".html")):
+    if (
+        path == "/"
+        or path.startswith("/api/")
+        or path.endswith((".css", ".js", ".html"))
+    ):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
