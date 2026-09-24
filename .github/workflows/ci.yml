@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - "archive/**" # 每日快照提交不重跑测试
   pull_request:
 
 jobs:

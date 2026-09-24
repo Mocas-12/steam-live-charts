@@ -1,0 +1,34 @@
+name: Daily snapshot
+
+on:
+  schedule:
+    - cron: "0 16 * * *" # UTC 16:00 = 北京时间 00:00，一天将尽时的榜单定格
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install httpx
+
+      - name: Snapshot boards
+        run: python scripts/snapshot.py
+
+      - name: Commit archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add archive/
+          git commit -m "snapshot: $(date -u +%F) 每日榜单快照" || echo "nothing to commit"
+          git push
