@@ -260,10 +260,11 @@ class TestParseSearchRows:
 
 
 class _FakeResponse:
-    """桩响应：与 get_tag_map 用到的接口（raise_for_status/json）形状一致。"""
+    """桩响应：与 _get_backoff / get_tag_map 用到的接口形状一致。"""
 
-    def __init__(self, payload):
+    def __init__(self, payload, status_code=200):
         self._payload = payload
+        self.status_code = status_code
 
     def raise_for_status(self):
         pass
@@ -327,3 +328,34 @@ class TestGetTagMap:
         assert get_tag_map() == {}  # 第二次走缓存
         assert len(client.calls) == 1  # 只发起过一次请求
         assert steamdata._tag_map == {}
+
+
+# ---------- fetch_search / fetch_free_to_keep 的解析失效哨兵 ----------
+
+
+class TestSearchParseSentinel:
+    """HTTP 成功但解析 0 行时必须抛错：让上层 TTLCache 回退旧数据，
+    而不是让榜单静默变空（看起来像"没数据"）。"""
+
+    def _stub(self, monkeypatch, results_html):
+        client = _FakeClient(payload={"results_html": results_html})
+        monkeypatch.setattr(steamdata, "get_client", lambda: client)
+        return client
+
+    def test_zero_parsed_rows_raises(self, monkeypatch):
+        """页面有内容但正则一行都没匹配到 -> RuntimeError（Steam 改版信号）。"""
+        self._stub(monkeypatch, "<div>页面还在，但结构变了</div>")
+        with pytest.raises(RuntimeError, match="解析 0 行"):
+            steamdata.fetch_search()
+
+    def test_free_to_keep_zero_parsed_rows_raises(self, monkeypatch):
+        """限时免费同口径：解析失效不能被误读成"当前无活动"。"""
+        self._stub(monkeypatch, "<div>页面还在，但结构变了</div>")
+        with pytest.raises(RuntimeError, match="解析 0 行"):
+            steamdata.fetch_free_to_keep()
+
+    def test_valid_rows_pass_through(self, monkeypatch, tags):
+        """正常解析路径不受哨兵影响。"""
+        self._stub(monkeypatch, SEARCH_HTML)
+        rows = steamdata.fetch_search()
+        assert [it["appid"] for it in rows] == [570, 730]

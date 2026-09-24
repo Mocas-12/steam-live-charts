@@ -172,8 +172,12 @@ def fetch_search(specials: bool = False, free: bool = False, sort: str = "TopSel
     if free:
         params["maxprice"] = "free"
     r = _get_backoff(f"{STEAM_STORE}/search/results/", params=params)
-    r.raise_for_status()
-    return parse_search_rows(r.json()["results_html"])
+    rows = parse_search_rows(r.json()["results_html"])
+    if not rows:
+        # HTTP 成功但一行都没解析出来：多半是 Steam 改了页式。宁可抛错让上层
+        # TTLCache 回退旧数据，也不能让榜单静默变空（看起来像"没数据"）
+        raise RuntimeError(f"搜索页解析 0 行（HTTP {r.status_code}），Steam 页式可能已变更")
+    return rows
 
 
 def fetch_free_to_keep() -> list[dict]:
@@ -197,8 +201,9 @@ def fetch_free_to_keep() -> list[dict]:
         "maxprice": "free",
     }
     r = _get_backoff(f"{STEAM_STORE}/search/results/", params=params)
-    r.raise_for_status()
     rows = parse_search_rows(r.json()["results_html"])
+    if not rows:  # 同 fetch_search：解析失效要炸出来，不能静默当成"无活动"
+        raise RuntimeError(f"搜索页解析 0 行（HTTP {r.status_code}），Steam 页式可能已变更")
     return [it for it in rows if it["price"]["pct"] == -100]
 
 
@@ -216,7 +221,6 @@ def fetch_new_releases() -> list[dict]:
     return out[:30]
 def fetch_most_played() -> list[dict]:
     r = _get_backoff(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
-    r.raise_for_status()
     return r.json()["response"]["ranks"]
 
 
@@ -267,7 +271,6 @@ def fetch_detail(appid: int, _retry: bool = True) -> dict | None:
 def fetch_name_from_community(appid: int) -> str | None:
     """已下架/区域锁定的游戏 appdetails 拿不到名字，从社区页标题兜底。"""
     r = _get_backoff(f"https://steamcommunity.com/app/{appid}")
-    r.raise_for_status()
     m = re.search(r"<title>([^<]+)</title>", r.text)
     if not m:
         return None
