@@ -1,6 +1,3 @@
 __pycache__/
 *.pyc
 .venv/
-test_*.json
-_fix*.py
-mp_check.json

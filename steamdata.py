@@ -37,6 +37,17 @@ def get_client() -> httpx.Client:
     return _client
 
 
+def _get_backoff(url: str, **kwargs):
+    """GET；429/403（Steam 对 Cloud IP 限流）退避 2s 重试一次。"""
+    client = get_client()
+    r = client.get(url, **kwargs)
+    if r.status_code in (429, 403):
+        time.sleep(2)
+        r = client.get(url, **kwargs)
+    r.raise_for_status()
+    return r
+
+
 def price_from_overview(po: dict | None, is_free: bool) -> dict | None:
     if is_free:
         return {"free": True, "final": "免费开玩", "original": None, "pct": None}
@@ -160,7 +171,7 @@ def fetch_search(specials: bool = False, free: bool = False, sort: str = "TopSel
         params["specials"] = 1
     if free:
         params["maxprice"] = "free"
-    r = get_client().get(f"{STEAM_STORE}/search/results/", params=params)
+    r = _get_backoff(f"{STEAM_STORE}/search/results/", params=params)
     r.raise_for_status()
     return parse_search_rows(r.json()["results_html"])
 
@@ -185,7 +196,7 @@ def fetch_free_to_keep() -> list[dict]:
         "specials": 1,
         "maxprice": "free",
     }
-    r = get_client().get(f"{STEAM_STORE}/search/results/", params=params)
+    r = _get_backoff(f"{STEAM_STORE}/search/results/", params=params)
     r.raise_for_status()
     rows = parse_search_rows(r.json()["results_html"])
     return [it for it in rows if it["price"]["pct"] == -100]
@@ -204,13 +215,13 @@ def fetch_new_releases() -> list[dict]:
         out.append(it)
     return out[:30]
 def fetch_most_played() -> list[dict]:
-    r = get_client().get(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
+    r = _get_backoff(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
     r.raise_for_status()
     return r.json()["response"]["ranks"]
 
 
 def fetch_ccu(appid: int) -> int:
-    r = get_client().get(
+    r = _get_backoff(
         f"{STEAM_API}/ISteamUserStats/GetNumberOfCurrentPlayers/v1/", params={"appid": appid}
     )
     r.raise_for_status()
@@ -232,7 +243,7 @@ def fetch_detail_cached(appid: int) -> dict | None:
 
 
 def fetch_detail(appid: int, _retry: bool = True) -> dict | None:
-    r = get_client().get(
+    r = _get_backoff(
         f"{STEAM_STORE}/api/appdetails", params={"appids": appid, "cc": CC, "l": LANG}
     )
     r.raise_for_status()
@@ -255,7 +266,7 @@ def fetch_detail(appid: int, _retry: bool = True) -> dict | None:
 
 def fetch_name_from_community(appid: int) -> str | None:
     """已下架/区域锁定的游戏 appdetails 拿不到名字，从社区页标题兜底。"""
-    r = get_client().get(f"https://steamcommunity.com/app/{appid}")
+    r = _get_backoff(f"https://steamcommunity.com/app/{appid}")
     r.raise_for_status()
     m = re.search(r"<title>([^<]+)</title>", r.text)
     if not m:

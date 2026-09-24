@@ -6,7 +6,8 @@
 
 **实时 Steam 游戏榜单 —— 热销商品 · 最热游玩 · 特惠专区，每 60 秒自动刷新**
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![CI](https://github.com/Mocas-12/steam-live-charts/actions/workflows/ci.yml/badge.svg)](https://github.com/Mocas-12/steam-live-charts/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](#-工作原理)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://steam-live-charts.streamlit.app/)
 [![Auto Refresh](https://img.shields.io/badge/Auto_Refresh-60s-75b022)](#-功能特性)
@@ -64,7 +65,7 @@ flowchart LR
 
 ## 📖 使用指南
 
-- **Tab 切换**：热销商品 / 最热游玩 / 特惠专区，每个 tab 各自原地刷新
+- **Tab 切换**：六大榜单自由切换，每个 tab 各自原地刷新
 - **最热游玩**：# 列按实时在线排序；右侧为当前在线与今日峰值；周变化对照上周官方榜（▲ 上升 / ▼ 下降 / 新上榜）
 - **价格**：全部人民币（数据区域 `cc=cn`）；折扣块显示折扣率 + 到手价，原价划线
 - **刷新**：等 60 秒倒计时、点 ↻ 刷新或直接 F5，后端缓存会替你控制好请求频率
@@ -73,14 +74,16 @@ flowchart LR
 
 ```text
 steam-live-charts/
-├── app.py               # FastAPI 后端：异步抓取 + TTL 缓存 + 静态站点托管
+├── app.py               # FastAPI 后端：TTL 缓存 + 静态站点托管（数据走 steamdata）
 ├── steamdata.py         # 共用同步数据层（两个前端共用）
 ├── streamlit_app.py     # Streamlit Cloud 入口：主题 CSS + 榜单 tab + 60s 自动刷新
 ├── run.bat              # Windows 一键启动（端口 8123）
 ├── static/              # Steam 风格前端（index.html / steam.css / app.js）
+├── tests/               # 离线单元测试（steamdata 解析 + TTLCache）
 ├── .streamlit/          # config.toml（暗色主题）
 ├── docs/
 │   └── index.html       # GitHub Pages 跳转页（转发到 Streamlit Cloud）
+├── LICENSE              # MIT
 └── logo.svg             # 项目 logo
 ```
 
@@ -91,7 +94,7 @@ steam-live-charts/
 ```bash
 git clone https://github.com/Mocas-12/steam-live-charts.git
 cd steam-live-charts
-pip install -r requirements.txt
+pip install fastapi "uvicorn[standard]" httpx  # 最小依赖；requirements.txt 是含 Streamlit 的全量包
 python -m uvicorn app:app --host 127.0.0.1 --port 8123
 # Windows 可直接双击 run.bat
 ```
@@ -118,7 +121,7 @@ streamlit run streamlit_app.py
 **自托管**
 
 ```bash
-pip install -r requirements.txt
+pip install fastapi "uvicorn[standard]" httpx
 python -m uvicorn app:app --host 0.0.0.0 --port 8123
 ```
 
@@ -126,7 +129,7 @@ python -m uvicorn app:app --host 0.0.0.0 --port 8123
 FROM python:3.12-slim
 WORKDIR /app
 COPY . .
-RUN pip install -U fastapi "uvicorn[standard]" httpx streamlit
+RUN pip install -U fastapi "uvicorn[standard]" httpx
 EXPOSE 8123
 CMD ["python","-m","uvicorn","app:app","--host","0.0.0.0","--port","8123"]
 ```

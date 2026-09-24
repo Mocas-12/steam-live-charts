@@ -6,7 +6,8 @@
 
 **Real-time Steam leaderboards — Top Sellers · Most Played · Specials, auto-refreshed every 60 seconds**
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![CI](https://github.com/Mocas-12/steam-live-charts/actions/workflows/ci.yml/badge.svg)](https://github.com/Mocas-12/steam-live-charts/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](#-how-it-works)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://steam-live-charts.streamlit.app/)
 [![Auto Refresh](https://img.shields.io/badge/Auto_Refresh-60s-75b022)](#-features)
@@ -64,7 +65,7 @@ flowchart LR
 
 ## 📖 Usage Guide
 
-- **Tabs**: Top Sellers / Most Played / Specials — switch freely, each tab refreshes itself in place
+- **Tabs**: six leaderboards — switch freely, each tab refreshes itself in place
 - **Most Played**: the # column follows live player counts; 当前在线 (current players) and 今日峰值 (today's peak) are on the right; 周变化 compares against last week's official chart (▲ rose / ▼ fell / 新上榜 NEW)
 - **Prices**: always CNY (data region `cc=cn`); discount blocks show percent + final price with the original struck through
 - **Refresh**: wait for the 60s countdown, hit ↻ 刷新, or press F5 — backend caches keep Steam's rate limits happy either way
@@ -73,14 +74,16 @@ flowchart LR
 
 ```text
 steam-live-charts/
-├── app.py               # FastAPI backend: async fetchers + TTL caches + static site hosting
+├── app.py               # FastAPI backend: TTL caches + static site hosting (data via steamdata)
 ├── steamdata.py         # Shared sync data layer (used by both frontends)
 ├── streamlit_app.py     # Streamlit Cloud entry: theme CSS + tabs + 60s auto-refresh fragments
 ├── run.bat              # One-click start on Windows (port 8123)
 ├── static/              # Steam-styled frontend (index.html / steam.css / app.js)
+├── tests/               # Offline unit tests (steamdata parsing + TTLCache)
 ├── .streamlit/          # config.toml (dark theme)
 ├── docs/
 │   └── index.html       # GitHub Pages redirect page (forwards to Streamlit Cloud)
+├── LICENSE              # MIT
 └── logo.svg             # Project logo
 ```
 
@@ -91,7 +94,7 @@ steam-live-charts/
 ```bash
 git clone https://github.com/Mocas-12/steam-live-charts.git
 cd steam-live-charts
-pip install -r requirements.txt
+pip install fastapi "uvicorn[standard]" httpx  # minimal deps; requirements.txt is the full bundle incl. Streamlit
 python -m uvicorn app:app --host 127.0.0.1 --port 8123
 # Windows: double-click run.bat
 ```
@@ -118,7 +121,7 @@ streamlit run streamlit_app.py
 **Self-hosted**
 
 ```bash
-pip install -r requirements.txt
+pip install fastapi "uvicorn[standard]" httpx
 python -m uvicorn app:app --host 0.0.0.0 --port 8123
 ```
 
@@ -126,7 +129,7 @@ python -m uvicorn app:app --host 0.0.0.0 --port 8123
 FROM python:3.12-slim
 WORKDIR /app
 COPY . .
-RUN pip install -U fastapi "uvicorn[standard]" httpx streamlit
+RUN pip install -U fastapi "uvicorn[standard]" httpx
 EXPOSE 8123
 CMD ["python","-m","uvicorn","app:app","--host","0.0.0.0","--port","8123"]
 ```
