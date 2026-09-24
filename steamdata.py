@@ -201,9 +201,13 @@ def fetch_free_to_keep() -> list[dict]:
         "maxprice": "free",
     }
     r = _get_backoff(f"{STEAM_STORE}/search/results/", params=params)
-    rows = parse_search_rows(r.json()["results_html"])
-    if not rows:  # 同 fetch_search：解析失效要炸出来，不能静默当成"无活动"
-        raise RuntimeError(f"搜索页解析 0 行（HTTP {r.status_code}），Steam 页式可能已变更")
+    html = r.json()["results_html"]
+    rows = parse_search_rows(html)
+    # 实测（2026-09-25）：无活动时 Steam 返回 ~45 字节的空页；页面很大却 0 行才是页式变更
+    if len(html) > 1000 and not rows:
+        raise RuntimeError(
+            f"搜索页解析 0 行（HTTP {r.status_code}，页面 {len(html)} 字节），Steam 页式可能已变更"
+        )
     return [it for it in rows if it["price"]["pct"] == -100]
 
 

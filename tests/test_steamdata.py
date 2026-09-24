@@ -348,9 +348,14 @@ class TestSearchParseSentinel:
         with pytest.raises(RuntimeError, match="解析 0 行"):
             steamdata.fetch_search()
 
-    def test_free_to_keep_zero_parsed_rows_raises(self, monkeypatch):
-        """限时免费同口径：解析失效不能被误读成"当前无活动"。"""
-        self._stub(monkeypatch, "<div>页面还在，但结构变了</div>")
+    def test_free_to_keep_tiny_empty_page_is_legit(self, monkeypatch):
+        """实测：无活动时 Steam 返回 ~45 字节空页 -> 合法无活动，返回 []。"""
+        self._stub(monkeypatch, "")
+        assert steamdata.fetch_free_to_keep() == []
+
+    def test_free_to_keep_big_page_zero_rows_raises(self, monkeypatch):
+        """页面很大却解析 0 行 -> 改版信号，不能静默当成"无活动"。"""
+        self._stub(monkeypatch, "<div>" + "x" * 2000 + "</div>")
         with pytest.raises(RuntimeError, match="解析 0 行"):
             steamdata.fetch_free_to_keep()
 
