@@ -1,36 +1,23 @@
 """Steam 实时游戏榜单 —— FastAPI 后端（本地/自托管用）。
 
-共享数据逻辑在 steamdata.py（同步版，Streamlit 端 streamlit_app.py 复用同一套解析），
-本文件只负责异步抓取 + TTL 缓存 + 静态前端托管：
-- 热销商品:  store search sort_by=TopSellers (50 条, 含价格折扣)
-- 特惠专区:  同上 + specials=1 (50 条折扣游戏按畅销排序)
-- 新品上架:  featuredcategories new_releases (精选 30 条, 含价格/封面)
-- 免费游戏:  同热销 + maxprice=free (过滤免费试玩, 50 条按畅销排序)
-- 最热游玩:  ISteamChartsService/GetMostPlayedGames (Top100, 峰值榜)
-             + ISteamUserStats/GetNumberOfCurrentPlayers (逐款实时在线, 60s 缓存)
-             + store appdetails (游戏名/价格/类型, 10min 缓存)
+数据抓取统一走共享同步层 steamdata.py（asyncio.to_thread 调用，
+与 Streamlit 端完全同一条代码路径），本文件只负责 TTL 缓存 + 静态前端托管：
+- 六大榜单端点 /api/*（最热游玩 60s / 搜索类 120s / 新品 600s 顶层缓存）
+- /healthz 存活探针
 """
 
 import asyncio
+import logging
 import os
-import re
 import time
 
-import httpx
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from steamdata import (
-    CC,
-    HEADER_IMG,
-    LANG,
-    STORE_URL,
-    STEAM_API,
-    STEAM_STORE,
-    parse_search_rows,
-    price_from_overview,
-)
+import steamdata
+
+log = logging.getLogger("steam-live-charts")
 
 REFRESH_SECONDS = 60  # 前端轮询节奏，与最热榜缓存一致
 
@@ -58,6 +45,7 @@ class TTLCache:
             async with self.lock:
                 self.inflight.pop(key, None)
             if hit is not None:  # 网络抖动时用过期数据兜底
+                log.warning("上游 %s 抓取失败，回退过期缓存", key)
                 return hit[1]
             raise
         async with self.lock:
@@ -66,17 +54,8 @@ class TTLCache:
         return value
 
 
-client = httpx.AsyncClient(
-    timeout=httpx.Timeout(20.0),
-    headers={"User-Agent": "steam-live-charts/1.0", "Accept-Language": "zh-CN,zh;q=0.9"},
-    follow_redirects=True,
-)
-
 charts_cache = TTLCache(REFRESH_SECONDS)
-ccu_cache = TTLCache(REFRESH_SECONDS)
-detail_cache = TTLCache(1800)
 search_cache = TTLCache(120)
-name_cache = TTLCache(24 * 3600)
 new_cache = TTLCache(600)
 
 app = FastAPI(title="Steam 实时游戏榜单")
@@ -107,124 +86,14 @@ def meta() -> dict:
     return {"updated_at": int(time.time()), "ttl": REFRESH_SECONDS}
 
 
-# ---------- 基础数据源（异步版） ----------
+def to_thread(fn, *args):
+    """同步数据层调用转协程（给 TTLCache 的 factory 用）。"""
+    return lambda: asyncio.to_thread(fn, *args)
 
-async def fetch_most_played() -> list[dict]:
-    r = await client.get(f"{STEAM_API}/ISteamChartsService/GetMostPlayedGames/v1/")
-    r.raise_for_status()
-    return r.json()["response"]["ranks"]
-
-
-async def fetch_ccu(appid: int) -> int:
-    r = await client.get(
-        f"{STEAM_API}/ISteamUserStats/GetNumberOfCurrentPlayers/v1/", params={"appid": appid}
-    )
-    r.raise_for_status()
-    return r.json()["response"].get("player_count", 0)
-
-
-async def fetch_detail(appid: int, _retry: bool = True) -> dict | None:
-    r = await client.get(
-        f"{STEAM_STORE}/api/appdetails", params={"appids": appid, "cc": CC, "l": LANG}
-    )
-    r.raise_for_status()
-    data = r.json().get(str(appid), {}).get("data")
-    if not data and _retry:
-        await asyncio.sleep(0.8)
-        return await fetch_detail(appid, _retry=False)
-    if not data:
-        return None
-    return {
-        "name": data.get("name"),
-        "image": data.get("header_image"),
-        "genres": [
-            g["description"] for g in data.get("genres", [])
-            if g["description"] not in ("免费开玩", "Free to Play")
-        ][:3],
-        "price": price_from_overview(data.get("price_overview"), data.get("is_free")),
-    }
-
-
-async def fetch_name_from_community(appid: int) -> str | None:
-    """已下架/区域锁定的游戏 appdetails 拿不到名字，从社区页标题兜底。"""
-    r = await client.get(f"https://steamcommunity.com/app/{appid}")
-    r.raise_for_status()
-    m = re.search(r"<title>([^<]+)</title>", r.text)
-    if not m:
-        return None
-    name = m.group(1).strip().split("::")[-1].strip()
-    if name in ("Steam 社区", "Steam Community", ""):  # 无独立社区页的游戏
-        return None
-    return name
-
-
-async def fetch_search(specials: bool = False, free: bool = False, sort: str = "TopSellers") -> list[dict]:
-    params = {
-        "query": "",
-        "start": 0,
-        "count": 50,
-        "dynamic_data": "",
-        "sort_by": sort,
-        "supportedlang": "schinese",
-        "l": LANG,
-        "snr": "1_7_7_700_702",
-        "infinite": 1,
-        "cc": CC,
-    }
-    if specials:
-        params["specials"] = 1
-    if free:
-        params["maxprice"] = "free"
-    r = await client.get(f"{STEAM_STORE}/search/results/", params=params)
-    r.raise_for_status()
-    return parse_search_rows(r.json()["results_html"])
-
-
-async def fetch_free_to_keep() -> list[dict]:
-    """限时免费入库：原价付费、当前 100% 折扣免费入库的游戏。
-
-    Steam 没有现成榜单，用 search 的 specials=1 与 maxprice=free 的交集，
-    再只留 -100% 折扣行（平时 0~10 个，需要空状态兜底）。
-    """
-    params = {
-        "query": "",
-        "start": 0,
-        "count": 100,
-        "dynamic_data": "",
-        "sort_by": "TopSellers",
-        "supportedlang": "schinese",
-        "l": LANG,
-        "snr": "1_7_7_700_702",
-        "infinite": 1,
-        "cc": CC,
-        "specials": 1,
-        "maxprice": "free",
-    }
-    r = await client.get(f"{STEAM_STORE}/search/results/", params=params)
-    r.raise_for_status()
-    rows = parse_search_rows(r.json()["results_html"])
-    return [it for it in rows if it["price"]["pct"] == -100]
-
-
-async def fetch_new_releases() -> list[dict]:
-    """新品上架：按上架时间排序的最新游戏（50 条，含类型/发售日期/价格）。"""
-    rows = await fetch_search(sort="Released_DESC")
-    out = []
-    for it in rows:
-        if not it["price"]["final"]:
-            continue
-        low = it["name"].lower()
-        if "demo" in low or "playtest" in low or "试玩" in it["name"] or "测试" in it["name"]:
-            continue  # 过滤 Demo / 试玩版
-        out.append(it)
-    return out[:30]
-
-
-# ---------- API 路由 ----------
 
 @app.get("/api/top-sellers")
 async def api_top_sellers(force: bool = False):
-    items = await search_cache.get("top_sellers", lambda: fetch_search(False), force=force)
+    items = await search_cache.get("top_sellers", to_thread(steamdata.fetch_search, False), force=force)
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
     ]
@@ -233,7 +102,7 @@ async def api_top_sellers(force: bool = False):
 
 @app.get("/api/specials")
 async def api_specials(force: bool = False):
-    items = await search_cache.get("specials", lambda: fetch_search(True), force=force)
+    items = await search_cache.get("specials", to_thread(steamdata.fetch_search, True), force=force)
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
     ]
@@ -242,7 +111,7 @@ async def api_specials(force: bool = False):
 
 @app.get("/api/free-to-keep")
 async def api_free_to_keep(force: bool = False):
-    items = await search_cache.get("free_to_keep", fetch_free_to_keep, force=force)
+    items = await search_cache.get("free_to_keep", to_thread(steamdata.fetch_free_to_keep), force=force)
     items = [
         {**it, "rank": i + 1}
         for i, it in enumerate(items)
@@ -253,7 +122,7 @@ async def api_free_to_keep(force: bool = False):
 
 @app.get("/api/new-releases")
 async def api_new_releases(force: bool = False):
-    items = await new_cache.get("new_releases", fetch_new_releases, force=force)
+    items = await new_cache.get("new_releases", to_thread(steamdata.fetch_new_releases), force=force)
     items = [
         {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
     ]
@@ -262,7 +131,7 @@ async def api_new_releases(force: bool = False):
 
 @app.get("/api/free-games")
 async def api_free_games(force: bool = False):
-    items = await search_cache.get("free_games", lambda: fetch_search(False, free=True), force=force)
+    items = await search_cache.get("free_games", to_thread(steamdata.fetch_search, False, True), force=force)
     items = [
         {**it, "rank": i + 1}
         for i, it in enumerate(items)
@@ -273,49 +142,15 @@ async def api_free_games(force: bool = False):
 
 @app.get("/api/most-played")
 async def api_most_played(force: bool = False):
-    ranks = await charts_cache.get("ranks", fetch_most_played, force=force)
-
-    ccu_sem = asyncio.Semaphore(20)
-    detail_sem = asyncio.Semaphore(15)
-
-    async def enrich(r: dict) -> dict:
-        appid = r["appid"]
-        async with ccu_sem:
-            try:
-                players = await ccu_cache.get(f"ccu:{appid}", lambda: fetch_ccu(appid))
-            except Exception:
-                players = None
-        async with detail_sem:
-            try:
-                detail = await detail_cache.get(f"d:{appid}", lambda: fetch_detail(appid))
-            except Exception:
-                detail = None
-        name = (detail or {}).get("name")
-        if not name:
-            try:
-                name = await name_cache.get(f"n:{appid}", lambda: fetch_name_from_community(appid))
-            except Exception:
-                name = None
-        last = r.get("last_week_rank", -1)
-        return {
-            "rank": r["rank"],
-            "appid": appid,
-            "name": name or f"App {appid}",
-            "image": (detail or {}).get("image") or HEADER_IMG.format(appid),
-            "url": STORE_URL.format(appid),
-            "genres": (detail or {}).get("genres") or [],
-            "price": (detail or {}).get("price"),
-            "players": players,
-            "peak": r.get("peak_in_game"),
-            "delta": (last - r["rank"]) if last > 0 else None,  # 正数=较上周上升
-            "is_new": last == -1,
-        }
-
-    items = await asyncio.gather(*(enrich(r) for r in ranks))
-    # 官方 rank 是每日快照，与实时在线数有出入；实时榜单按当前在线重排
-    items = sorted(items, key=lambda it: it["players"] if it["players"] is not None else -1, reverse=True)
-    items = [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    # build_most_played = 官方榜 + 逐款实时在线(并发20) + 详情(30min缓存)
+    # + 社区页名字兜底(24h缓存)，官方每日快照按当前在线重排
+    items = await charts_cache.get("most_played", to_thread(steamdata.build_most_played), force=force)
     return {"meta": meta(), "items": items}
+
+
+@app.get("/healthz")
+async def healthz():
+    return {"ok": True}
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

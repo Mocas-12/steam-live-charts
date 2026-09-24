@@ -8,11 +8,14 @@
 """
 
 import html as htmllib
+import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 STEAM_API = "https://api.steampowered.com"
 STEAM_STORE = "https://store.steampowered.com"
@@ -263,6 +266,23 @@ def fetch_name_from_community(appid: int) -> str | None:
     return name
 
 
+_name_store: dict[int, tuple[float, str | None]] = {}
+NAME_TTL = 24 * 3600  # 名字几乎不变；仅缓存成功结果，失败下个周期重试
+
+
+def fetch_name_cached(appid: int) -> str | None:
+    hit = _name_store.get(appid)
+    if hit and time.monotonic() - hit[0] < NAME_TTL:
+        return hit[1]
+    try:
+        name = fetch_name_from_community(appid)
+    except Exception as e:
+        log.debug("community name %s: %s", appid, e)
+        return None
+    _name_store[appid] = (time.monotonic(), name)
+    return name
+
+
 def build_most_played(top_n: int = 100) -> list[dict]:
     """Top N 最热游玩：官方榜 + 逐款实时在线（并发 20）+ 详情（并发 15）。
 
@@ -273,7 +293,8 @@ def build_most_played(top_n: int = 100) -> list[dict]:
     def safe(fn, *a):
         try:
             return fn(*a)
-        except Exception:
+        except Exception as e:
+            log.debug("%s failed: %s", getattr(fn, "__name__", fn), e)
             return None
 
     with ThreadPoolExecutor(max_workers=20) as ex:
@@ -281,17 +302,13 @@ def build_most_played(top_n: int = 100) -> list[dict]:
     with ThreadPoolExecutor(max_workers=15) as ex:
         details = list(ex.map(lambda r: safe(fetch_detail_cached, r["appid"]), ranks))
 
-    name_cache: dict[int, str] = {}
-
     items = []
     for r, ccu, detail in zip(ranks, players, details):
         appid = r["appid"]
         detail = detail or {}
         name = detail.get("name")
         if not name:
-            if appid not in name_cache:
-                name_cache[appid] = safe(fetch_name_from_community, appid)
-            name = name_cache[appid]
+            name = fetch_name_cached(appid)
         last = r.get("last_week_rank", -1)
         items.append(
             {
