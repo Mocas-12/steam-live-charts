@@ -21,7 +21,7 @@ jobs:
           cache: pip
 
       - name: Install test dependencies
-        run: pip install pytest httpx
+        run: pip install pytest fastapi httpx
 
       - name: Unit tests
         run: python -m pytest tests/ -q
