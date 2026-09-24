@@ -170,10 +170,14 @@ h1 {
 }
 .refresh-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 
-/* ---------- Tab（分段控件） ---------- */
+/* ---------- Tab（分段控件）+ 榜单筛选 ---------- */
 
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-top: 26px;
+}
 .tabs {
-  display: inline-flex; gap: 2px; margin-top: 26px;
+  display: inline-flex; gap: 2px;
   background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line);
   border-radius: 12px; padding: 4px;
 }
@@ -186,6 +190,18 @@ h1 {
 .tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
 .tab.active { background: #f2f3f7; color: #101216; font-weight: 700; }
 .tab.active:hover { background: #f2f3f7; color: #101216; }
+
+.filter-input {
+  background: rgba(255, 255, 255, 0.04); color: var(--text);
+  border: 1px solid var(--line); border-radius: 12px;
+  font-family: inherit; font-size: 13px;
+  padding: 9px 14px; width: 220px; outline: none;
+  transition: border-color .15s, background .15s;
+}
+.filter-input::placeholder { color: var(--dim); }
+.filter-input:hover { background: rgba(255, 255, 255, 0.06); }
+.filter-input:focus { border-color: rgba(232, 194, 104, 0.55); background: rgba(255, 255, 255, 0.06); }
+.filter-input::-webkit-search-cancel-button { -webkit-appearance: none; }
 
 /* ---------- 面板 ---------- */
 
@@ -224,7 +240,7 @@ h1 {
 
 .rows-head, .row {
   display: grid;
-  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px 96px;
+  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px 104px 96px;
   gap: 16px; align-items: center; padding: 8px 6px;
 }
 .rows-head {
@@ -276,6 +292,13 @@ h1 {
   font-size: 10px; padding: 2px 8px; border-radius: 99px; letter-spacing: 1px;
 }
 
+/* 24h 在线迷你曲线 */
+.spark-col { display: flex; justify-content: center; }
+.spark { width: 96px; height: 22px; display: block; }
+.spark polyline { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: .85; }
+.spark circle { fill: var(--up); }
+.spark-dim { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
 /* 价格类榜单的横排（无在线数据列） */
 .rows-head.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
 .rows-head.simple .r { text-align: right; }
@@ -300,7 +323,7 @@ h1 {
 
 @keyframes shimmer { 0% { opacity: .35; } 50% { opacity: .7; } 100% { opacity: .35; } }
 .skel-row {
-  display: grid; grid-template-columns: 64px 156px 1fr 105px 105px 64px 96px;
+  display: grid; grid-template-columns: 64px 156px 1fr 105px 105px 64px 104px 96px;
   gap: 16px; align-items: center; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,.03);
 }
 .skel-row div { height: 16px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); animation: shimmer 1.5s infinite; }
@@ -337,11 +360,13 @@ footer {
     gap: 11px;
   }
   .row img { width: 116px; }
-  .row .peak-col, .row .delta-col { display: none; }
+  .row .peak-col, .row .delta-col, .row .spark-col { display: none; }
   .row:not(.simple) .price-col { display: none; }
   .row .rank { font-size: 16px; }
   .pnum { font-size: 15px; }
   .nav-links { display: none; }
   .head-top { flex-direction: column; align-items: flex-start; }
   .tabs { display: flex; flex-wrap: wrap; }
+  .toolbar { margin-top: 20px; }
+  .filter-input { width: 100%; }
 }

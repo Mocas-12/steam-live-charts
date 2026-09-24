@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Steam 实时游戏榜单 · GAMECHARTS</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23e0b851'/><rect x='6' y='16' width='5' height='10' rx='1.5' fill='%2314171d'/><rect x='13' y='10' width='5' height='16' rx='1.5' fill='%2314171d'/><rect x='20' y='18' width='5' height='8' rx='1.5' fill='%2314171d'/><circle cx='24' cy='8' r='2' fill='%236fdc8c'/></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0f13">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="steam.css?v=__VER__">
 </head>
 <body>
@@ -48,14 +51,18 @@
         <button class="refresh-btn" id="refresh-btn" title="立即刷新"><span>↻ 刷新</span></button>
       </div>
     </div>
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-tab="most-played">最热游玩</button>
-      <button class="tab" data-tab="top-sellers">热销商品</button>
-      <button class="tab" data-tab="specials">特惠专区</button>
-      <button class="tab" data-tab="new-releases">新品上架</button>
-      <button class="tab" data-tab="free-games">免费游戏</button>
-      <button class="tab" data-tab="free-to-keep">限时免费</button>
-    </nav>
+    <div class="toolbar">
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="most-played">最热游玩</button>
+        <button class="tab" data-tab="top-sellers">热销商品</button>
+        <button class="tab" data-tab="specials">特惠专区</button>
+        <button class="tab" data-tab="new-releases">新品上架</button>
+        <button class="tab" data-tab="free-games">免费游戏</button>
+        <button class="tab" data-tab="free-to-keep">限时免费</button>
+      </nav>
+      <input id="filter" class="filter-input" type="search"
+             placeholder="筛选游戏名…" autocomplete="off" spellcheck="false">
+    </div>
   </div>
 </header>
 

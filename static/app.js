@@ -15,6 +15,7 @@ const state = {
   fetchedAt: {}, // tab -> Date.now()
   loading: {},   // tab -> bool
   nextRefresh: 60,
+  query: "",     // 榜单内游戏名筛选
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -51,6 +52,23 @@ function deltaHtml(it) {
   return '<span class="delta same">—</span>';
 }
 
+/* 24h 在线迷你曲线：gold 折线 + 绿色最新点 */
+function sparkSvg(spark) {
+  if (!spark || spark.length < 2) return '<span class="spark-dim">采样中</span>';
+  const w = 96, h = 22, pad = 2;
+  const min = Math.min(...spark), max = Math.max(...spark);
+  const range = (max - min) || 1;
+  const xy = spark.map((v, i) => [
+    pad + (i * (w - 2 * pad)) / (spark.length - 1),
+    h - pad - ((v - min) / range) * (h - 2 * pad),
+  ]);
+  const pts = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = xy[xy.length - 1];
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <polyline points="${pts}"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2"/>
+  </svg>`;
+}
+
 function rowHtml(it, stats) {
   if (!stats) {
     // 价格类榜单：# | 封面 | 游戏 | 价格
@@ -76,6 +94,7 @@ function rowHtml(it, stats) {
     <span class="pnum">${fmt(it.players)}</span>
     <span class="peak-col peak-num">${fmt(it.peak)}</span>
     <span class="delta-col">${deltaHtml(it)}</span>
+    <span class="spark-col">${sparkSvg(it.spark)}</span>
     <span class="price-col">${priceRowHtml(it.price)}</span>
   </a>`;
 }
@@ -84,7 +103,7 @@ function rowsHeadHtml(stats) {
   if (stats) {
     return ('<div class="rows-head"><span class="ctr">排名</span><span>游戏</span>'
       + '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-      + '<span class="ctr">周变化</span><span class="r">价格</span></div>');
+      + '<span class="ctr">周变化</span><span class="ctr">趋势</span><span class="r">价格</span></div>');
   }
   return ('<div class="rows-head simple"><span class="ctr">排名</span><span>游戏</span>'
     + '<span></span><span class="r">价格</span></div>');
@@ -105,6 +124,12 @@ function emptyHtml() {
   </div>`;
 }
 
+function applyFilter(items) {
+  const q = state.query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter(it => String(it.name || "").toLowerCase().includes(q));
+}
+
 function render(tab) {
   const items = state.data[tab];
   const listEl = $(`#list-${tab}`);
@@ -112,12 +137,18 @@ function render(tab) {
     listEl.innerHTML = skeletonHtml();
     return;
   }
-  if (!items.length) {
-    listEl.innerHTML = emptyHtml();
+  const shown = applyFilter(items);
+  if (!shown.length) {
+    // 原榜就空 -> 限时免费空状态；被筛空 -> 无匹配提示
+    listEl.innerHTML = items.length
+      ? `<div class="empty"><div class="ghost">0</div>`
+        + `<div class="etitle">没有匹配「${esc(state.query.trim())}」的游戏</div>`
+        + `<div class="esub">换个关键词，或清空筛选框看完整榜单</div></div>`
+      : emptyHtml();
     return;
   }
   const stats = tab === "most-played";
-  listEl.innerHTML = rowsHeadHtml(stats) + items.map(it => rowHtml(it, stats)).join("");
+  listEl.innerHTML = rowsHeadHtml(stats) + shown.map(it => rowHtml(it, stats)).join("");
 }
 
 function updateMeta(data) {
@@ -240,6 +271,11 @@ setInterval(() => {
 $("#tabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".tab");
   if (btn) switchTab(btn.dataset.tab);
+});
+
+$("#filter").addEventListener("input", (e) => {
+  state.query = e.target.value;
+  render(state.active); // 筛选跨 tab 生效，60s 刷新后依然保持
 });
 
 let refreshBusy = false;
