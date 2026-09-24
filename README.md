@@ -43,8 +43,13 @@
 - 💰 **CNY prices & deal tags**: soft green discount pills with struck-through original prices
 - 🀄 **Simplified Chinese**: localized titles, genres and cover art (`cc=cn&l=schinese`)
 - 🔄 **Auto refresh every 60s**: countdown + manual refresh on the FastAPI site; `st.fragment` in-place rerun on Streamlit — neither loses your current tab
-- 🧯 **Resilient fallbacks**: delisted / region-locked games (e.g. Rocket League) get their names from Steam Community pages; stale cache is served when upstream hiccups
+- 🧯 **Resilient fallbacks**: delisted / region-locked games (e.g. Rocket League) get their names from Steam Community pages; stale cache is served when upstream hiccups; a parse-layout sentinel raises instead of silently blanking a board if Steam ever changes its search markup
+- 📈 **24h trend sparklines**: every Most Played row carries a rolling 24-hour player-count sparkline (gold line, green live dot; sampled in memory while the server runs, full ring at `/api/history/{appid}`) — FastAPI site only
+- 🔍 **In-board filter**: type a game name to instantly filter the visible board — one box for all tabs on the FastAPI site, per-tab boxes on Streamlit
+- 🔔 **Free-to-keep push**: set the `NTFY_TOPIC` env var and get an ntfy.sh notification the moment a new 100%-off giveaway appears (off by default)
+- 🗂️ **Daily snapshots**: a scheduled GitHub Action freezes all six boards into `archive/YYYY-MM-DD.json` every day at Beijing midnight
 - 🖥️ **Two frontends, one data layer**: a hand-crafted FastAPI + vanilla JS site and a Streamlit Cloud replica sharing the same `steamdata.py`
+- 📱 **Installable PWA**: the FastAPI site ships a web manifest + icons, so "Add to Home Screen" gives you an app-like live board
 
 ## 🧠 How It Works
 
@@ -74,12 +79,15 @@ flowchart LR
 
 ```text
 steam-live-charts/
-├── app.py               # FastAPI backend: TTL caches + static site hosting (data via steamdata)
+├── app.py               # FastAPI backend: TTL caches + history ring + ntfy watchdog + static hosting
 ├── steamdata.py         # Shared sync data layer (used by both frontends)
 ├── streamlit_app.py     # Streamlit Cloud entry: theme CSS + tabs + 60s auto-refresh fragments
 ├── run.bat              # One-click start on Windows (port 8123)
-├── static/              # Steam-styled frontend (index.html / steam.css / app.js)
-├── tests/               # Offline unit tests (steamdata parsing + TTLCache)
+├── static/              # Frontend (index.html / steam.css / app.js + PWA manifest & icons)
+├── tests/               # Offline unit tests (steamdata parsing + TTLCache + history ring)
+├── scripts/
+│   └── snapshot.py      # Six-board daily archive writer (run by GitHub Actions)
+├── archive/             # Daily snapshots: YYYY-MM-DD.json (committed by the Action)
 ├── .streamlit/          # config.toml (dark theme)
 ├── docs/
 │   └── index.html       # GitHub Pages redirect page (forwards to Streamlit Cloud)
@@ -139,6 +147,7 @@ CMD ["python","-m","uvicorn","app:app","--host","0.0.0.0","--port","8123"]
 - **Region & language**: `CC` / `LANG` in `steamdata.py` (`cc=cn&l=schinese` → CNY + Simplified Chinese)
 - **Refresh cadence**: `REFRESH_SECONDS` in `app.py`, cache `ttl` values, and `run_every="60s"` in `streamlit_app.py`
 - **Leaderboard size**: `count=50` in `fetch_search()` and `build_most_played(top_n=100)`
+- **Free-to-keep push**: set the `NTFY_TOPIC` environment variable to any ntfy.sh topic name (treat it as a secret — anyone subscribing to the same topic receives your pushes; install the ntfy app and subscribe to enable delivery). Leave unset to disable
 - **Theme**: design tokens at the top of `static/steam.css`; the Streamlit mirror edits the CSS block in `streamlit_app.py` + `.streamlit/config.toml`
 
 ## ❓ FAQ

@@ -43,8 +43,13 @@
 - 💰 **人民币价格 + 折扣标签**：柔和绿折扣 pill、划线原价
 - 🀄 **简体中文**：游戏名、类型标签、中文封面（`cc=cn&l=schinese`）
 - 🔄 **60 秒自动刷新**：FastAPI 版倒计时轮询、Streamlit 版 `st.fragment` 原地刷新，都不会打断你正在看的 tab
-- 🧯 **多级兜底**：已下架/区域锁游戏（如 Rocket League）从 Steam 社区页取名字；上游接口抖动时回退过期缓存而不是报错
+- 🧯 **多级兜底**：已下架/区域锁游戏（如 Rocket League）从 Steam 社区页取名字；上游接口抖动时回退过期缓存而不是报错；解析哨兵会在 Steam 改搜索页式时显式报错，而不是让榜单静默变空
+- 📈 **24h 在线趋势线**：最热游玩每行带一条滚动 24 小时在线迷你曲线（金色折线 + 绿色实时点；服务运行期间内存采样，完整数据在 `/api/history/{appid}`）——FastAPI 端专属
+- 🔍 **榜单内筛选**：输入游戏名即时过滤当前榜——FastAPI 端全榜共用一个框，Streamlit 端每个 tab 独立
+- 🔔 **限时免费推送**：设置 `NTFY_TOPIC` 环境变量，出现新的 100% 免费入库活动时经 ntfy.sh 推送提醒（默认关闭）
+- 🗂️ **每日快照存档**：GitHub Actions 定时任务每天北京时间零点把六榜定格到 `archive/YYYY-MM-DD.json`
 - 🖥️ **一套数据层、两种前端**：手工打造的高速 FastAPI + 原生 JS 站点，和共享同一份 `steamdata.py` 的 Streamlit Cloud 版
+- 📱 **PWA 可安装**：FastAPI 端自带 web manifest + 图标，手机「添加到主屏幕」即得类 App 的实时榜单
 
 ## 🧠 工作原理
 
@@ -74,12 +79,15 @@ flowchart LR
 
 ```text
 steam-live-charts/
-├── app.py               # FastAPI 后端：TTL 缓存 + 静态站点托管（数据走 steamdata）
+├── app.py               # FastAPI 后端：TTL 缓存 + 在线采样环 + ntfy 看门狗 + 静态托管
 ├── steamdata.py         # 共用同步数据层（两个前端共用）
 ├── streamlit_app.py     # Streamlit Cloud 入口：主题 CSS + 榜单 tab + 60s 自动刷新
 ├── run.bat              # Windows 一键启动（端口 8123）
-├── static/              # Steam 风格前端（index.html / steam.css / app.js）
-├── tests/               # 离线单元测试（steamdata 解析 + TTLCache）
+├── static/              # 前端（index.html / steam.css / app.js + PWA manifest 与图标）
+├── tests/               # 离线单元测试（steamdata 解析 + TTLCache + 采样环）
+├── scripts/
+│   └── snapshot.py      # 六榜每日快照写入器（由 GitHub Actions 驱动）
+├── archive/             # 每日快照：YYYY-MM-DD.json（由 Action 自动提交）
 ├── .streamlit/          # config.toml（暗色主题）
 ├── docs/
 │   └── index.html       # GitHub Pages 跳转页（转发到 Streamlit Cloud）
@@ -139,6 +147,7 @@ CMD ["python","-m","uvicorn","app:app","--host","0.0.0.0","--port","8123"]
 - **区域与语言**：`steamdata.py` 里的 `CC` / `LANG`（`cc=cn&l=schinese` → 人民币 + 简体中文）
 - **刷新频率**：`app.py` 的 `REFRESH_SECONDS`、各缓存 `ttl`，以及 `streamlit_app.py` 的 `run_every="60s"`
 - **榜单长度**：`fetch_search()` 的 `count=50` 与 `build_most_played(top_n=100)`
+- **限时免费推送**：把 `NTFY_TOPIC` 环境变量设为任意 ntfy.sh 主题名（视为密码——订阅同一主题的人都能收到你的推送；手机装 ntfy 应用并订阅该主题即可收信）。留空则关闭
 - **主题配色**：`static/steam.css` 顶部的设计变量；Streamlit 版改 `streamlit_app.py` 里的 CSS 块和 `.streamlit/config.toml`
 
 ## ❓ 常见问题
