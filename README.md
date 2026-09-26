@@ -14,7 +14,7 @@
 
 **[🌐 Live Charts (Streamlit Cloud)](https://steam-live-charts.streamlit.app/)**
 
-**English** | [简体中文](./README.zh-CN.md)
+**English** | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md)
 
 *Open the page → browse Top Sellers, Most Played and Specials → everything refreshes itself every 60 seconds*
 

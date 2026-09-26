@@ -14,7 +14,7 @@
 
 **[🌐 在线榜单 (Streamlit Cloud)](https://steam-live-charts.streamlit.app/)**
 
-[English](./README.md) | **简体中文**
+[English](./README.md) | **简体中文** | [日本語](./README.ja-JP.md)
 
 *打开页面 → 浏览热销、最热、特惠三大榜单 → 全部数据每 60 秒自动更新*
 
