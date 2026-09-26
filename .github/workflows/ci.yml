@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths-ignore:
       - "archive/**" # 每日快照提交不重跑测试
+      - "cache/**"
   pull_request:
 
 jobs:

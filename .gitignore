@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .venv/
+cache/details_live.json
+cache/last_most_played.json

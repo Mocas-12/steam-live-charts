@@ -29,6 +29,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add archive/
+          git add archive/ cache/details_seed.json cache/last_most_played_seed.json
           git commit -m "snapshot: $(date -u +%F) 每日榜单快照" || echo "nothing to commit"
           git push

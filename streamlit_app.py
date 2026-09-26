@@ -378,7 +378,7 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 @st.fragment(run_every="60s")
 def render_rails():
-    items, _err = request_most_played()
+    items, _err, _built = request_most_played()
     if not items:  # 构建中/失败：侧卡占位，绝不阻塞页面其余部分
         st.markdown(
             '<div class="gc-rail left"><div class="rail-title">▍此刻在线 TOP 3</div>'
@@ -514,32 +514,43 @@ MP_TTL = 60          # 数据新鲜期；过期即触发后台重建，旧数据
 MP_RETRY_COOLDOWN = 30  # 失败后的冷却期，防止限流风暴下反复硬撞
 
 _mp_lock = threading.Lock()
-_mp_state = {"status": "idle", "items": None, "error": None, "ts": 0.0}
+_mp_state = {"status": "idle", "items": None, "error": None, "ts": 0.0, "built_at": None}
 
 
 def _build_mp_thread():
     try:
         items = steamdata.build_most_played()
         with _mp_lock:
-            _mp_state.update(status="ready", items=items, error=None, ts=time.time())
+            _mp_state.update(status="ready", items=items, error=None,
+                             ts=time.time(), built_at=None)
     except Exception as e:
         with _mp_lock:
             _mp_state.update(status="error", error=str(e), ts=time.time())
 
 
-def request_most_played() -> tuple[list | None, str | None]:
+def request_most_played() -> tuple[list | None, str | None, float | None]:
+    """返回 (items|None, error|None, built_at|None)；绝不阻塞。
+
+    built_at 非 None 表示这是磁盘缓存数据（进程冷启动的零等待首帧），
+    后台重建完成后自然替换为实时数据。
+    """
     with _mp_lock:
         s = _mp_state
         age = time.time() - s["ts"]
         if s["status"] == "building":
-            return s["items"], None  # 构建中：有旧数据给旧数据
+            return s["items"], None, s["built_at"]
         if s["status"] == "ready" and age <= MP_TTL:
-            return s["items"], None
+            return s["items"], None, s["built_at"]
         if s["status"] == "error" and age < MP_RETRY_COOLDOWN:
-            return None, s["error"]  # 冷却期内不重启构建
+            return None, s["error"], None
+        # idle / ready 过期 / error 冷却结束：先尝试磁盘缓存顶上，再起后台构建
+        if s["items"] is None:
+            cached, built_at = steamdata.load_cached_most_played()
+            if cached:
+                s["items"], s["built_at"] = cached, built_at
         s["status"] = "building"
         threading.Thread(target=_build_mp_thread, daemon=True).start()
-        return s["items"], None  # 触发重建的同时把旧数据交出去
+        return s["items"], None, s["built_at"]
 
 
 def kick_most_played_rebuild():
@@ -687,7 +698,7 @@ def render_briefing():
         ftk = _safe(load_free_to_keep)
     except Exception:
         ftk = []
-    mp, _err = request_most_played()
+    mp, _err, _built = request_most_played()
     if not mp:
         st.markdown('<div class="gc-briefing"><span class="bi">数据同步中…</span></div>',
                     unsafe_allow_html=True)
@@ -731,15 +742,24 @@ def render_sellers():
     )
 
 
+def cached_line(built_at: float) -> str:
+    """磁盘缓存帧的更新行：诚实标注数据时间，说明正在后台刷新。"""
+    t = datetime.fromtimestamp(built_at, _CN_TZ).strftime("%H:%M:%S")
+    return (f'<div class="gc-meta-line"><span class="dot" style="background:var(--gc-gold);'
+            f'box-shadow:0 0 8px rgba(232,194,104,.7)"></span>'
+            f'缓存数据 · {t} · 后台刷新实时数据中…</div>')
+
+
 @st.fragment(run_every="60s")
 def render_most_played():
     q = st.text_input("筛选", key="q_played", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
     box = st.empty()
-    items, err = request_most_played()
+    items, err, built_at = request_most_played()
     if items:
+        line = cached_line(built_at) if built_at else updated_line()
         box.markdown(
-            updated_line() + rows_html(items, "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True, query=q),
+            line + rows_html(items, "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True, query=q),
             unsafe_allow_html=True,
         )
     elif err:

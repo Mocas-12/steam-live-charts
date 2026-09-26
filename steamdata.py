@@ -8,15 +8,50 @@
 """
 
 import html as htmllib
+import json
 import logging
 import re
+import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import httpx
 
 log = logging.getLogger(__name__)
+
+# ---------- 磁盘缓存：冷启动零等待的关键 ----------
+#
+# cache/details_seed.json        每日快照 job 提交进仓库的详情种子（随部署分发）
+# cache/details_live.json        运行时抓到的详情热身文件（gitignore，进程重启不丢）
+# cache/last_most_played.json    最近一次成功构建的完整榜单（gitignore）
+# cache/last_most_played_seed.json  同上的种子版（每日 job 刷新）
+#
+# 冷启动顺序：读热身/种子 -> 立即出完整榜单（标注数据时间）-> 后台重建为实时。
+CACHE_DIR = Path("cache")
+DETAILS_SEED = CACHE_DIR / "details_seed.json"
+DETAILS_LIVE = CACHE_DIR / "details_live.json"
+LAST_MP_SEED = CACHE_DIR / "last_most_played_seed.json"
+LAST_MP_LIVE = CACHE_DIR / "last_most_played.json"
+SEED_DETAIL_TTL = 36 * 3600  # 种子详情（名字/封面/类型）老化期；价格由每日 job 保持新鲜
+
+
+def _load_json(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _dump_json(path: Path, obj) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+        )
+    except Exception as e:
+        log.debug("cache write %s: %s", path, e)
 
 STEAM_API = "https://api.steampowered.com"
 STEAM_STORE = "https://store.steampowered.com"
@@ -241,13 +276,63 @@ _detail_store: dict[int, tuple[float, dict | None]] = {}
 DETAIL_TTL = 1800  # 详情 30min 缓存：价格/类型变化慢，也避免反复触发限流
 
 
-def fetch_detail_cached(appid: int) -> dict | None:
-    now = time.monotonic()
+def _warm_detail_store() -> None:
+    """进程启动时从磁盘预热详情缓存（热身文件优先，种子兜底）。
+
+    冷启动从此不用为 100 款游戏逐个打 appdetails（限流重灾区，实测能把
+    构建拖到两分钟以上）；种子由每日快照 job 刷新，仅限默认区域配置。
+    """
+    if (CC, LANG) != ("cn", "schinese"):
+        return
+    now = time.time()
+    for path, ttl in ((DETAILS_LIVE, DETAIL_TTL * 48), (DETAILS_SEED, SEED_DETAIL_TTL)):
+        data = _load_json(path)
+        if not data:
+            continue
+        for k, entry in data.items():
+            try:
+                appid = int(k)
+                ts = float(entry["ts"])
+                detail = entry.get("d")
+            except (KeyError, TypeError, ValueError):
+                continue
+            if now - ts > ttl or appid in _detail_store:
+                continue
+            _detail_store[appid] = (ts, detail)
+
+
+_warm_detail_store()
+
+
+_persist_lock = threading.Lock()
+
+
+def _persist_detail(appid: int, ts: float, detail: dict | None) -> None:
+    """抓取结果落盘：从内存全表重建（并发安全，避免整表互相覆盖）。"""
+    if (CC, LANG) != ("cn", "schinese"):
+        return
+    with _persist_lock:
+        snapshot = {
+            str(a): {"ts": t, "d": d}
+            for a, (t, d) in _detail_store.items()
+            if d is not None
+        }
+        _dump_json(DETAILS_LIVE, snapshot)
+
+
+def _persist_detail_store() -> None:
+    """构建结束统一落盘一次（确保全部成功条目都进热身文件）。"""
+    _persist_detail(0, 0.0, None)
+
+
+def fetch_detail_cached(appid: int, max_age: float = DETAIL_TTL) -> dict | None:
+    now = time.time()
     hit = _detail_store.get(appid)
-    if hit and now - hit[0] < DETAIL_TTL:
+    if hit and now - hit[0] < max_age:
         return hit[1]
     detail = fetch_detail(appid)
     _detail_store[appid] = (now, detail)
+    _persist_detail(appid, now, detail)
     return detail
 
 
@@ -319,7 +404,10 @@ def build_most_played(top_n: int = 100) -> list[dict]:
     with ThreadPoolExecutor(max_workers=20) as ex:
         players = list(ex.map(lambda r: safe(fetch_ccu, r["appid"]), ranks))
     with ThreadPoolExecutor(max_workers=15) as ex:
-        details = list(ex.map(lambda r: safe(fetch_detail_cached, r["appid"]), ranks))
+        # 详情信任磁盘预热（36h 内直接用，冷启动零 appdetails 请求），完全 miss 才抓
+        details = list(
+            ex.map(lambda r: safe(fetch_detail_cached, r["appid"], 36 * 3600), ranks)
+        )
 
     items = []
     for r, ccu, detail in zip(ranks, players, details):
@@ -349,7 +437,33 @@ def build_most_played(top_n: int = 100) -> list[dict]:
     for it in items:
         it["spark"] = HISTORY.spark(it["appid"])
         it["surge"] = surge_pct(it["appid"])
+    _persist_detail_store()  # 本轮全部详情落盘（并发下单条写有覆盖，此处兜底全量）
+    _dump_json(LAST_MP_LIVE, {"built_at": time.time(), "items": items})
     return items
+
+
+def load_cached_most_played(max_age: float = 26 * 3600):
+    """最近一次成功构建的完整榜单（热身文件优先，种子兜底）。
+
+    冷启动零等待路径：返回 (items, built_at)；过期/缺失返回 (None, None)。
+    """
+    now = time.time()
+    for path in (LAST_MP_LIVE, LAST_MP_SEED):
+        data = _load_json(path)
+        if not data:
+            continue
+        built_at = float(data.get("built_at") or 0)
+        items = data.get("items")
+        if items and now - built_at < max_age:
+            return items, built_at
+    return None, None
+
+
+def write_detail_seed(path: Path = DETAILS_SEED) -> None:
+    """把内存详情缓存整表落盘为仓库种子（每日快照 job 调用）。"""
+    data = {str(a): {"ts": ts, "d": d} for a, (ts, d) in _detail_store.items() if d}
+    _dump_json(path, data)
+    return None
 
 
 # ---------- 24h 在线采样 + 异动分析（双端共享） ----------

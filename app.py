@@ -207,9 +207,25 @@ async def api_free_games(force: bool = False):
 
 @app.get("/api/most-played")
 async def api_most_played(force: bool = False):
-    # build_most_played = 官方榜 + 逐款实时在线(并发20) + 详情(30min缓存)
+    # build_most_played = 官方榜 + 逐款实时在线(并发20) + 详情(磁盘预热,36h信任)
     # + 社区页名字兜底(24h缓存) + 24h采样(steamdata.HISTORY)，
     # 官方每日快照按当前在线重排；spark/surge 字段在数据层内嵌
+    if not force:
+        async with charts_cache.lock:
+            hit = charts_cache.data.get("most_played")
+            fresh = hit is not None and time.monotonic() - hit[0] < charts_cache.ttl
+            building = "most_played" in charts_cache.inflight
+        if not fresh:
+            # 冷启动/重建中：立即返回磁盘缓存（标注 built_at），并确保后台在重建实时数据
+            cached, built_at = await asyncio.to_thread(steamdata.load_cached_most_played)
+            if cached:
+                if not building:
+                    asyncio.create_task(
+                        charts_cache.get("most_played", to_thread(steamdata.build_most_played))
+                    )
+                m = meta()
+                m["cached_built_at"] = int(built_at)
+                return {"meta": m, "items": cached}
     items = await charts_cache.get("most_played", to_thread(steamdata.build_most_played), force=force)
     return {"meta": meta(), "items": items}
 

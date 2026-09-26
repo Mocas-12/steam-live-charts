@@ -252,8 +252,14 @@ async function loadBriefing() {
 
 function updateMeta(data) {
   if (!data || !data.meta) return;
-  const t = new Date(data.meta.updated_at * 1000);
-  $("#updated-at").textContent = `更新于 ${t.toLocaleTimeString("zh-CN", { hour12: false })}`;
+  if (data.meta.cached_built_at) {
+    const b = new Date(data.meta.cached_built_at * 1000);
+    $("#updated-at").textContent =
+      `缓存数据 ${b.toLocaleTimeString("zh-CN", { hour12: false })} · 后台刷新中`;
+  } else {
+    const t = new Date(data.meta.updated_at * 1000);
+    $("#updated-at").textContent = `更新于 ${t.toLocaleTimeString("zh-CN", { hour12: false })}`;
+  }
   state.nextRefresh = data.meta.ttl || 60;
 }
 
