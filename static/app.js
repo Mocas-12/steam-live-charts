@@ -16,7 +16,50 @@ const state = {
   loading: {},   // tab -> bool
   nextRefresh: 60,
   query: "",     // 榜单内游戏名筛选
+  watchOnly: false, // 只看关注
+  prevPlayers: {},   // tab -> {appid: 上次在线数}，用于数字脉冲
 };
+
+/* 关注列表：localStorage 持久化；deals 记录各游戏上次见到的折扣力度，跌破即提示 */
+const watch = new Set(JSON.parse(localStorage.getItem("gc_watch") || "[]"));
+const deals = JSON.parse(localStorage.getItem("gc_deals") || "{}");
+const dealNow = new Set(); // 本次会话检测到的「关注游戏降价了」
+
+function saveWatch() {
+  localStorage.setItem("gc_watch", JSON.stringify([...watch]));
+}
+
+function toggleWatch(appid) {
+  if (watch.has(appid)) watch.delete(appid);
+  else watch.add(appid);
+  saveWatch();
+  updateWatchChip();
+  render(state.active);
+}
+
+function updateWatchChip() {
+  const chip = $("#watch-chip");
+  if (!chip) return;
+  chip.hidden = watch.size === 0;
+  $("#watch-count").textContent = watch.size;
+  chip.classList.toggle("active", state.watchOnly);
+}
+
+/* 折扣追踪：pct 跌破上次记录 → 绿星提示；折扣消失则清记录 */
+function updateDeals(items) {
+  for (const it of items) {
+    const pct = it.price && it.price.pct != null ? it.price.pct : null;
+    const last = deals[it.appid];
+    if (pct != null) {
+      if (last != null && pct < last && watch.has(it.appid)) dealNow.add(it.appid);
+      deals[it.appid] = pct;
+    } else if (last != null) {
+      delete deals[it.appid];
+      dealNow.delete(it.appid);
+    }
+  }
+  localStorage.setItem("gc_deals", JSON.stringify(deals));
+}
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -52,7 +95,7 @@ function deltaHtml(it) {
   return '<span class="delta same">—</span>';
 }
 
-/* 24h 在线迷你曲线：gold 折线 + 绿色最新点 */
+/* 24h 在线迷你曲线：按走势着色（涨绿/跌红/平金）+ 最新点 */
 function sparkSvg(spark) {
   if (!spark || spark.length < 2) return '<span class="spark-dim">采样中</span>';
   const w = 96, h = 22, pad = 2;
@@ -64,9 +107,20 @@ function sparkSvg(spark) {
   ]);
   const pts = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const [lx, ly] = xy[xy.length - 1];
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+  const trend = spark[spark.length - 1] > spark[0] ? "up" : spark[spark.length - 1] < spark[0] ? "down" : "flat";
+  return `<svg class="spark ${trend}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
     <polyline points="${pts}"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2"/>
   </svg>`;
+}
+
+function nameColHtml(it) {
+  /* 游戏名列：☆关注 + 名称 + 🔥异动徽章（所有榜单通用） */
+  const watched = watch.has(it.appid);
+  const deal = watched && dealNow.has(it.appid);
+  const star = `<span class="star${watched ? " on" : ""}${deal ? " deal" : ""}" data-appid="${it.appid}" `
+    + `title="${watched ? "取消关注" : "关注"}">${watched ? "★" : "☆"}</span>`;
+  const surge = it.surge ? `<span class="surge">🔥 +${it.surge}%</span>` : "";
+  return `<span class="nameline">${star}<span class="gname">${esc(it.name)}</span>${surge}</span>`;
 }
 
 function rowHtml(it, stats) {
@@ -78,7 +132,7 @@ function rowHtml(it, stats) {
       <span class="rank">${it.rank}</span>
       <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
            onerror="this.style.visibility='hidden'">
-      <span class="gcol"><span class="gname">${esc(it.name)}</span>${sub}</span>
+      <span class="gcol">${nameColHtml(it)}${sub}</span>
       <span class="price-col">${priceRowHtml(it.price)}</span>
     </a>`;
   }
@@ -88,7 +142,7 @@ function rowHtml(it, stats) {
     <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
          onerror="this.style.visibility='hidden'">
     <span class="gcol">
-      <span class="gname">${esc(it.name)}</span>
+      ${nameColHtml(it)}
       ${genres ? `<span class="genre-line">${genres}</span>` : ""}
     </span>
     <span class="pnum">${fmt(it.players)}</span>
@@ -124,9 +178,11 @@ function emptyHtml() {
 }
 
 function applyFilter(items) {
+  let out = items;
   const q = state.query.trim().toLowerCase();
-  if (!q) return items;
-  return items.filter(it => String(it.name || "").toLowerCase().includes(q));
+  if (q) out = out.filter(it => String(it.name || "").toLowerCase().includes(q));
+  if (state.watchOnly) out = out.filter(it => watch.has(it.appid));
+  return out;
 }
 
 function render(tab) {
@@ -138,16 +194,60 @@ function render(tab) {
   }
   const shown = applyFilter(items);
   if (!shown.length) {
-    // 原榜就空 -> 限时免费空状态；被筛空 -> 无匹配提示
+    // 原榜就空 -> 限时免费空状态；被筛空 -> 提示（区分筛选词与关注过滤两种原因）
     listEl.innerHTML = items.length
       ? `<div class="empty"><div class="ghost">0</div>`
-        + `<div class="etitle">没有匹配「${esc(state.query.trim())}」的游戏</div>`
-        + `<div class="esub">换个关键词，或清空筛选框看完整榜单</div></div>`
+        + `<div class="etitle">没有匹配的游戏</div>`
+        + `<div class="esub">${state.watchOnly && !state.query.trim()
+            ? "你关注的游戏不在当前榜单，切换 tab 或点名字前的 ☆ 关注更多"
+            : "换个关键词，或清空筛选框看完整榜单"}</div></div>`
       : emptyHtml();
     return;
   }
   const stats = tab === "most-played";
   listEl.innerHTML = rowsHeadHtml(stats) + shown.map(it => rowHtml(it, stats)).join("");
+  pulseChanged(tab, listEl); // 数字变化时轻微脉冲，让"活着"被看见
+}
+
+/* 在线人数与上次相比有变化的行：数字闪一次金色 */
+function pulseChanged(tab, listEl) {
+  const prev = state.prevPlayers[tab] || (state.prevPlayers[tab] = {});
+  listEl.querySelectorAll(".row").forEach(r => {
+    const star = r.querySelector(".star");
+    if (!star) return;
+    const id = Number(star.dataset.appid);
+    const pn = r.querySelector(".pnum");
+    if (!pn) return;
+    const cur = Number((pn.textContent || "").replace(/,/g, ""));
+    if (!Number.isFinite(cur)) return;
+    if (id in prev && prev[id] !== cur) {
+      pn.classList.remove("tick");
+      void pn.offsetWidth; // 重启同 key 动画
+      pn.classList.add("tick");
+    }
+    prev[id] = cur;
+  });
+}
+
+/* ---------- 今日速览条 ---------- */
+
+async function loadBriefing() {
+  try {
+    const b = await (await fetch("/api/briefing", { cache: "no-store" })).json();
+    const el = $("#briefing");
+    if (!el) return;
+    const parts = [];
+    if (b.total_online) parts.push(`此刻 <b>${fmt(b.total_online)}</b> 人在线`);
+    (b.surges || []).forEach(s =>
+      parts.push(`🔥 <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a> 在线 <b>+${s.pct}%</b>`));
+    if (b.new_entries) parts.push(`<b>${b.new_entries}</b> 款新上榜`);
+    if (b.ftk_count) {
+      parts.push(`🎁 限时免费进行中（${esc(b.ftk_names.join("、"))}${b.ftk_count > 3 ? " 等" : ""}）`);
+    }
+    if (!parts.length) parts.push("数据同步中…");
+    el.innerHTML = parts.map(p => `<span class="bi">${p}</span>`).join("");
+    el.hidden = false;
+  } catch (e) { /* 保留占位 */ }
 }
 
 function updateMeta(data) {
@@ -170,6 +270,7 @@ async function load(tab, { silent = false, force = false } = {}) {
     const data = await res.json();
     state.data[tab] = data.items;
     state.fetchedAt[tab] = Date.now();
+    updateDeals(data.items); // 关注游戏降价检测
     updateMeta(data);
     $("#error-banner").hidden = true;
     if (tab === state.active) render(tab);
@@ -215,6 +316,7 @@ async function updateTicker() {
   } catch (e) { /* 静默 */ } finally {
     tickerBusy = false;
   }
+  loadBriefing(); // 速览条跟随同一节奏更新
 }
 
 /* ---------- 侧边实时数据卡 ---------- */
@@ -277,6 +379,21 @@ $("#filter").addEventListener("input", (e) => {
   render(state.active); // 筛选跨 tab 生效，60s 刷新后依然保持
 });
 
+$("#watch-chip").addEventListener("click", () => {
+  state.watchOnly = !state.watchOnly;
+  updateWatchChip();
+  render(state.active);
+});
+
+/* 星标点击：捕获阶段拦截，避免触发行内 <a> 跳转 */
+document.addEventListener("click", (e) => {
+  const star = e.target.closest(".star");
+  if (!star) return;
+  e.preventDefault();
+  e.stopPropagation();
+  toggleWatch(Number(star.dataset.appid));
+}, true);
+
 let refreshBusy = false;
 
 $("#refresh-btn").addEventListener("click", async () => {
@@ -302,6 +419,7 @@ $("#retry-btn").addEventListener("click", () => load(state.active));
 // 支持 #most-played 等 hash 深链直达指定榜单
 const h = location.hash.slice(1);
 const initial = API[h] ? h : "most-played";
+updateWatchChip();
 switchTab(initial);
 load(initial);
 updateTicker();

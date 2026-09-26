@@ -60,9 +60,13 @@
         <button class="tab" data-tab="free-games">免费游戏</button>
         <button class="tab" data-tab="free-to-keep">限时免费</button>
       </nav>
-      <input id="filter" class="filter-input" type="search"
-             placeholder="筛选游戏名…" autocomplete="off" spellcheck="false">
+      <div class="toolbar-right">
+        <button id="watch-chip" class="watch-chip" hidden>★ 我的关注 <span id="watch-count"></span></button>
+        <input id="filter" class="filter-input" type="search"
+               placeholder="筛选游戏名…" autocomplete="off" spellcheck="false">
+      </div>
     </div>
+    <div class="briefing" id="briefing" hidden><span class="bi">数据同步中…</span></div>
   </div>
 </header>
 

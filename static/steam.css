@@ -203,6 +203,61 @@ h1 {
 .filter-input:focus { border-color: rgba(232, 194, 104, 0.55); background: rgba(255, 255, 255, 0.06); }
 .filter-input::-webkit-search-cancel-button { -webkit-appearance: none; }
 
+.toolbar-right { display: flex; align-items: center; gap: 8px; }
+
+/* ★ 我的关注（有星标后出现的过滤开关） */
+.watch-chip {
+  background: rgba(232, 194, 104, 0.08); color: var(--gold);
+  border: 1px solid rgba(232, 194, 104, 0.35);
+  border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 9px 14px; cursor: pointer; transition: all .15s;
+}
+.watch-chip:hover { background: rgba(232, 194, 104, 0.16); }
+.watch-chip.active {
+  background: var(--gold); color: #101216; border-color: var(--gold);
+}
+
+/* 今日速览条：打开页面的"最低保证收益" */
+.briefing {
+  margin-top: 14px;
+  background: rgba(232, 194, 104, 0.05);
+  border: 1px solid rgba(232, 194, 104, 0.18);
+  border-radius: 12px; padding: 10px 16px;
+  font-size: 13px; color: var(--muted);
+  display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px;
+}
+.briefing[hidden] { display: none; }
+.briefing .bi { display: inline-flex; align-items: center; }
+.briefing .bi + .bi::before { content: "·"; margin: 0 12px; color: var(--dim); }
+.briefing b { color: var(--gold); font-family: var(--mono); font-weight: 700; }
+.briefing a { color: var(--text); text-decoration: none; font-weight: 600; }
+.briefing a:hover { color: var(--gold); }
+
+/* 行内 ☆ 关注 + 🔥 异动徽章 */
+.nameline { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.star {
+  cursor: pointer; color: var(--dim); font-size: 15px; line-height: 1;
+  transition: color .15s, transform .15s; flex: none; user-select: none;
+}
+.star:hover { color: var(--gold); transform: scale(1.2); }
+.star.on { color: var(--gold); }
+.star.deal { color: var(--up); } /* 关注的游戏降价了：星星变绿 */
+.surge {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: #ff9d6b; background: rgba(255, 122, 74, 0.12);
+  border: 1px solid rgba(255, 122, 74, 0.4);
+  padding: 1px 8px; border-radius: 99px; white-space: nowrap; flex: none;
+  animation: surgePulse 2.2s ease-in-out infinite;
+}
+@keyframes surgePulse { 50% { opacity: .65; } }
+
+/* 微动效：在线数字刷新脉冲 + 封面 hover 微放大 */
+.pnum { transition: color .3s; }
+.pnum.tick { animation: numTick .9s ease; }
+@keyframes numTick { 30% { color: var(--gold); } }
+.row img { transition: transform .25s ease; }
+.row:hover img { transform: scale(1.03); }
+
 /* ---------- 面板 ---------- */
 
 .panel {
@@ -292,11 +347,15 @@ h1 {
   font-size: 10px; padding: 2px 8px; border-radius: 99px; letter-spacing: 1px;
 }
 
-/* 24h 在线迷你曲线 */
+/* 24h 在线迷你曲线（按走势着色） */
 .spark-col { display: flex; justify-content: center; }
 .spark { width: 96px; height: 22px; display: block; }
 .spark polyline { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: .85; }
-.spark circle { fill: var(--up); }
+.spark circle { fill: var(--gold); }
+.spark.up polyline { stroke: var(--up); }
+.spark.up circle { fill: var(--up); }
+.spark.down polyline { stroke: var(--down); }
+.spark.down circle { fill: var(--down); }
 .spark-dim { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 
 /* 价格类榜单的横排（带价格列） */
@@ -365,5 +424,8 @@ footer {
   .head-top { flex-direction: column; align-items: flex-start; }
   .tabs { display: flex; flex-wrap: wrap; }
   .toolbar { margin-top: 20px; }
-  .filter-input { width: 100%; }
+  .toolbar-right { width: 100%; }
+  .filter-input { flex: 1; width: auto; }
+  .briefing { font-size: 12px; padding: 9px 12px; }
+  .briefing .bi + .bi::before { margin: 0 8px; }
 }
