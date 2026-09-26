@@ -37,7 +37,7 @@
 ## ✨ Features
 
 - 🏆 **Six live leaderboards** (Most Played opens by default): Most Played (Top 100) · Top Sellers (Top 50) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50) · Free To Keep (100%-off giveaways, empty-state when no promo is live)
-- 🕹️ **Cinematic theme**: content-first dark design — cover art is the hero, with soft rounded cards, gold accents, metal rank numerals (gold / silver / bronze) for the top 3 and monospace stat digits; deliberately *not* a Steam clone
+- 🎨 **Aurora Glass theme** (2026 design language): liquid-glass surfaces on a deep-space backdrop with dual aurora glows — brand gold (fire) × electric blue (ice) — film-grain texture, oversized gradient typography, and gradient gold/silver/bronze rank numerals; deliberately *not* a Steam clone
 - 📊 **Live ticker & stat cards**: a marquee of hot items across the top; on wide screens, side cards show the playing-now TOP 3, TOP100 total online and refresh time
 - 👥 **Real-time player counts**: every game is queried individually against Steam's official stats API — the Most Played board is re-ranked by *current* concurrent players and shows today's peak plus weekly rank movement (▲ up / ▼ down / NEW)
 - 💰 **CNY prices & deal tags**: soft green discount pills with struck-through original prices
@@ -47,7 +47,7 @@
 - 📈 **24h trend sparklines**: every Most Played row carries a rolling 24-hour player-count sparkline colored by trend (green up / red down / gold flat; sampled in memory while the server runs, full ring at `/api/history/{appid}`) — FastAPI site only
 - 📡 **Daily briefing strip**: an at-a-glance line under the header — total online now, 🔥 surging games (30-min window vs 2-hour baseline), new entries, live giveaways — every visit tells you what changed in 3 seconds
 - ⭐ **Watchlist** (FastAPI site): star any game to follow it, one click on "★ 我的关注" filters every board to your stars, and a star turns green the moment a watched game's discount deepens
-- ✨ **Restrained live motion**: player counts flash gold when they change, covers zoom slightly on hover, surge badges breathe — deliberately subtle, the Cinematic calm stays
+- ✨ **Restrained live motion**: player counts flash gold when they change, covers zoom slightly on hover, surge badges breathe — deliberately subtle, the Aurora calm stays
 - 🔍 **In-board filter**: type a game name to instantly filter the visible board — one box for all tabs on the FastAPI site, per-tab boxes on Streamlit
 - 🔔 **Free-to-keep push**: set the `NTFY_TOPIC` env var and get an ntfy.sh notification the moment a new 100%-off giveaway appears (off by default)
 - 🗂️ **Daily snapshots**: a scheduled GitHub Action freezes all six boards into `archive/YYYY-MM-DD.json` every day at Beijing midnight
