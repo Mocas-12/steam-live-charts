@@ -193,8 +193,8 @@ a { color: #e8eaf0; }
 .stTextInput input:focus { border-color: rgba(232,194,104,.55) !important; box-shadow: none !important; }
 .stTextInput input::placeholder { color: #6b7285 !important; }
 
-/* Tab（分段控件） */
-[data-baseweb="tab-list"] {
+/* Tab（分段控件）——兼容旧版 baseweb 与新版 react-aria 两种 DOM */
+[data-baseweb="tab-list"], [role="tablist"] {
   display: inline-flex; gap: 2px; border-bottom: none;
   background: rgba(255,255,255,.04); border: 1px solid var(--gc-line);
   border-radius: 12px; padding: 4px;
@@ -208,7 +208,7 @@ a { color: #e8eaf0; }
 [role="tab"]:hover p { color: #e8eaf0 !important; }
 [role="tab"][aria-selected="true"] { background: #f2f3f7; }
 [role="tab"][aria-selected="true"] p { color: #101216 !important; font-weight: 700; }
-[data-baseweb="tab-highlight"] { display: none !important; }
+[data-baseweb="tab-highlight"], .react-aria-SelectionIndicator { display: none !important; }
 
 /* 榜单面板 */
 .gc-panel { margin-top: 16px; }
@@ -366,7 +366,47 @@ a { color: #e8eaf0; }
   .gc-row .peak, .gc-row .delta { display: none; }
   .gc-row .pnum { font-size: 15px; }
   .gc-nav a:not(.gc-install) { display: none; }
-  [data-baseweb="tab-list"] { flex-wrap: wrap; }
+  [data-baseweb="tab-list"], [role="tablist"] { flex-wrap: wrap !important; overflow-x: visible !important; }
+  .gc-h1 { font-size: 24px; }
+  .stTextInput { max-width: 100%; }
+  .stTextInput input { font-size: 16px; } /* ≥16px 防 iOS 聚焦自动放大 */
+  [role="tab"] { padding: 8px 12px; }
+  [role="tab"] p { font-size: 12.5px !important; }
+  .gc-briefing { font-size: 12px; padding: 9px 12px; }
+  .gc-briefing .bi + .bi::before { margin: 0 8px; }
+  .gc-row .surge { font-size: 10.5px; padding: 1px 6px; margin-left: 6px; }
+}
+
+/* 手机竖屏细化（320-480px） */
+@media (max-width: 480px) {
+  .block-container { padding: 0 .9rem 1.6rem; }
+  .gc-nav { height: 54px; }
+  .gc-install { padding: 7px 12px; font-size: 12px !important; }
+  .gc-row, .gc-row.simple { grid-template-columns: 28px 104px minmax(0,1fr) auto; gap: 10px; padding: 7px 3px; }
+  .gc-row img { width: 104px; border-radius: 7px; }
+  .gc-row .rank { font-size: 14px; }
+  .gc-row .gname {
+    font-size: 13.5px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .gc-row .genre {
+    font-size: 10.5px;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .gc-row .gname { font-size: 13.5px; }
+  .gc-row .genre { font-size: 10.5px; }
+  .gc-row .pnum { font-size: 14px; }
+  .gc-row.simple .price-col .gc-price { font-size: 13px; }
+  .gc-row .price-col .gc-tag .pct,
+  .gc-row .price-col .gc-tag .final { font-size: 11.5px; }
+  .gc-row.simple .price-col { flex-direction: column; align-items: flex-end; gap: 2px; }
+  .gc-row.simple .price-col .gc-strike { display: none; }
+  .gc-ticker { height: 30px; }
+  .gc-ticker .ti { font-size: 11px; padding: 0 14px; }
+  .gc-section { font-size: 17px; }
+  .gc-empty .ghost { font-size: 30px; }
+  .gc-meta-line { font-size: 11px; }
+  .gc-footer { font-size: 11.5px; }
 }
 </style>
 """

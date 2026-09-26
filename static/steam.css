@@ -36,6 +36,7 @@ body {
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   overflow: hidden; height: 32px; display: flex; align-items: center;
+  padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
 }
 .ticker-track {
   display: inline-flex; white-space: nowrap; align-items: center;
@@ -402,7 +403,7 @@ h1 {
 
 footer {
   border-top: 1px solid var(--line);
-  padding: 24px 0 40px;
+  padding: 24px 0 calc(40px + env(safe-area-inset-bottom));
 }
 .footer-inner { color: var(--dim); font-size: 12.5px; line-height: 1.8; }
 .footer-links a { color: var(--muted); text-decoration: none; }
@@ -425,7 +426,51 @@ footer {
   .tabs { display: flex; flex-wrap: wrap; }
   .toolbar { margin-top: 20px; }
   .toolbar-right { width: 100%; }
-  .filter-input { flex: 1; width: auto; }
+  .filter-input { flex: 1; width: auto; font-size: 16px; } /* ≥16px 防 iOS 聚焦自动放大 */
   .briefing { font-size: 12px; padding: 9px 12px; }
   .briefing .bi + .bi::before { margin: 0 8px; }
+  .star { font-size: 17px; padding: 0 3px; } /* 触摸热区 */
+  .surge { font-size: 10.5px; padding: 1px 6px; }
+}
+
+/* 手机竖屏细化（iPhone/主流安卓 320-480px） */
+@media (max-width: 480px) {
+  .wrap { padding: 0 14px; }
+  h1 { font-size: 23px; }
+  .overline { font-size: 10px; letter-spacing: 2px; }
+  .head-meta { flex-wrap: wrap; font-size: 11px; row-gap: 4px; }
+  .refresh-btn { padding: 7px 13px; font-size: 12px; white-space: nowrap; flex: none; }
+  .tabs { padding: 3px; }
+  .tab { flex: 1 0 30%; text-align: center; padding: 9px 4px; font-size: 12.5px; }
+  .row, .skel-row, .row.simple, .rows-head.simple {
+    grid-template-columns: 22px 88px minmax(0, 1fr) auto;
+    gap: 9px; padding: 6px 3px;
+  }
+  .row img { width: 88px; border-radius: 7px; }
+  .row .rank { font-size: 13px; }
+  /* 价格三件套纵向堆叠，原价划线让位给游戏名 */
+  .row.simple .price-col { flex-direction: column; align-items: flex-end; gap: 2px; }
+  .row.simple .price-col .strike { display: none; }
+  .row .gname {
+    font-size: 13.5px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .row .genre-line {
+    font-size: 10.5px; margin-top: 2px;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .row .pnum { font-size: 14px; }
+  .row .price-col .price-plain { font-size: 13px; }
+  .row .price-col .price-tag .final,
+  .row .price-col .price-tag .pct { font-size: 11.5px; }
+  .briefing { border-radius: 10px; }
+  .briefing .bi + .bi::before { margin: 0 7px; }
+  .filter-input { padding: 9px 12px; }
+  .watch-chip { padding: 9px 12px; font-size: 12.5px; }
+  .ticker { height: 30px; }
+  .ticker .ti { font-size: 11px; padding: 0 14px; }
+  .empty { padding: 40px 0 32px; }
+  .empty .ghost { font-size: 30px; }
+  .error-banner { flex-direction: column; align-items: stretch; text-align: center; }
+  .error-banner button { width: 100%; }
 }
