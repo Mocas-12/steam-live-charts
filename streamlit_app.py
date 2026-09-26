@@ -13,13 +13,6 @@ import streamlit as st
 
 import steamdata
 
-# TEMP DIAG: 定位 Cloud 端 steamdata 模块版本问题（确认后移除）
-_diag = (
-    f"DIAG file={getattr(steamdata, '__file__', '?')} "
-    f"cached={getattr(steamdata, '__cached__', '?')} "
-    f"has_fn={hasattr(steamdata, 'load_cached_most_played')}"
-)
-
 st.set_page_config(
     page_title="GAMECHARTS · Steam 实时游戏榜单",
     page_icon="🎮",
@@ -648,7 +641,6 @@ def updated_line():
 head_l, head_r = st.columns([4, 1], vertical_alignment="center")
 with head_l:
     st.markdown('<div class="gc-overline">Realtime Arena · 每 60 秒自动刷新</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="gc-overline" style="font-size:9px">{_esc(_diag)}</div>', unsafe_allow_html=True)
     st.markdown('<div class="gc-h1">Steam 实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
 with head_r:
     if st.button("↻ 立即刷新", use_container_width=True):
