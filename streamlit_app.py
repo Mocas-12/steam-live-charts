@@ -271,6 +271,29 @@ a { color: #e8eaf0; }
 }
 .gc-row .gname { color: #fff !important; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
 .gc-row:hover .gname { color: var(--gc-gold) !important; }
+.gc-row .surge {
+  font-family: var(--gc-mono); font-size: 11px; font-weight: 700;
+  color: #ff9d6b !important; background: rgba(255,122,74,.12);
+  border: 1px solid rgba(255,122,74,.4);
+  padding: 1px 8px; border-radius: 99px; margin-left: 8px;
+  display: inline-block; vertical-align: 1px;
+  animation: gc-surge-pulse 2.2s ease-in-out infinite;
+}
+@keyframes gc-surge-pulse { 50% { opacity: .65; } }
+.gc-row img { transition: transform .25s ease; }
+.gc-row:hover img { transform: scale(1.03); }
+
+/* 今日速览条 */
+.gc-briefing {
+  background: rgba(232,194,104,.05);
+  border: 1px solid rgba(232,194,104,.18);
+  border-radius: 12px; padding: 10px 16px; margin: 2px 0 10px;
+  font-size: 13px; color: #98a0b3 !important;
+  display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px;
+}
+.gc-briefing .bi { display: inline-flex; align-items: center; }
+.gc-briefing .bi + .bi::before { content: "·"; margin: 0 12px; color: #6b7285 !important; }
+.gc-briefing b, .gc-briefing strong { color: var(--gc-gold) !important; font-family: var(--gc-mono); font-weight: 700; }
 .gc-row .genre { color: #98a0b3 !important; font-size: 11.5px; margin-top: 3px; }
 .gc-row .genre .p { color: #e8eaf0 !important; margin-left: 8px; font-family: var(--gc-mono); font-weight: 600; }
 .gc-row .pnum {
@@ -496,6 +519,8 @@ def delta_html(it):
 
 
 def row_html(it, stats):
+    surge = (f'<span class="surge">🔥 +{it["surge"]}%</span>'
+             if it.get("surge") else "")
     if not stats:
         # 价格类榜单：# | 封面 | 游戏（发售日期/类型）| 价格
         meta = " · ".join(x for x in [it.get("released"), " / ".join(it.get("genres") or [])] if x)
@@ -503,14 +528,14 @@ def row_html(it, stats):
         return (f'<a class="gc-row simple" href="{_esc(it["url"])}" target="_blank">'
                 f'<span class="rank">{it["rank"]}</span>'
                 f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=&quot;hidden&quot;">'
-                f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
+                f'<span><div class="gname">{_esc(it["name"])}{surge}</div>{sub}</span>'
                 f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
     genres = " / ".join(it.get("genres") or [])
     sub = (f'<span class="genre">{_esc(genres)}</span>' if genres else "")
     return (f'<a class="gc-row" href="{_esc(it["url"])}" target="_blank">'
             f'<span class="rank">{it["rank"]}</span>'
             f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=&quot;hidden&quot;">'
-            f'<span><div class="gname">{_esc(it["name"])}</div>{sub}</span>'
+            f'<span><div class="gname">{_esc(it["name"])}{surge}</div>{sub}</span>'
             f'<span class="pnum">{_fmt(it.get("players"))}</span>'
             f'<span class="peak">{_fmt(it.get("peak"))}</span>'
             f'{delta_html(it)}</a>')
@@ -587,6 +612,36 @@ def render_ticker():
 
 
 render_ticker()
+
+# ---------- 今日速览条（聚合缓存数据，60s 原地更新） ----------
+
+
+@st.fragment(run_every="60s")
+def render_briefing():
+    try:
+        mp = load_most_played()
+        ftk = load_free_to_keep()
+    except Exception:
+        return
+    b = steamdata.briefing_facts(mp, ftk)
+    parts = []
+    if b["total_online"]:
+        parts.append(f'此刻 <b>{b["total_online"]:,}</b> 人在线')
+    for s in b["surges"]:
+        parts.append(f'🔥 <strong>{_esc(s["name"])}</strong> 在线 <b>+{s["pct"]}%</b>')
+    if b["new_entries"]:
+        parts.append(f'<b>{b["new_entries"]}</b> 款新上榜')
+    if b["ftk_count"]:
+        names = "、".join(_esc(n) for n in b["ftk_names"])
+        more = " 等" if b["ftk_count"] > 3 else ""
+        parts.append(f'🎁 限时免费进行中（{names}{more}）')
+    if not parts:
+        parts.append("数据同步中…")
+    seq = "".join(f'<span class="bi">{p}</span>' for p in parts)
+    st.markdown(f'<div class="gc-briefing">{seq}</div>', unsafe_allow_html=True)
+
+
+render_briefing()
 
 # ---------- 六个榜单（fragment 每 60 秒原地刷新，不丢 tab 状态） ----------
 
