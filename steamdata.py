@@ -11,6 +11,7 @@ import html as htmllib
 import logging
 import re
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
@@ -343,4 +344,98 @@ def build_most_played(top_n: int = 100) -> list[dict]:
             }
         )
     items.sort(key=lambda it: it["players"] if it["players"] is not None else -1, reverse=True)
-    return [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    items = [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    HISTORY.sample(items)  # 24h 滚动采样：双端（FastAPI/Streamlit）共用同一份内存环
+    for it in items:
+        it["spark"] = HISTORY.spark(it["appid"])
+        it["surge"] = surge_pct(it["appid"])
+    return items
+
+
+# ---------- 24h 在线采样 + 异动分析（双端共享） ----------
+
+
+def downsample(values: list, n: int = 40) -> list:
+    """等距抽 n 个点（不足 n 全保留），右端点对齐最新值。"""
+    if len(values) <= n:
+        return list(values)
+    step = len(values) / n
+    out = [values[int(i * step)] for i in range(n)]
+    out[-1] = values[-1]
+    return out
+
+
+class HistoryRing:
+    """appid -> deque[(ts, players)] 的 24h 滚动采样。
+
+    采样随榜单重建发生（60s TTL 天然限频，min_interval 兜底去重），
+    内存保留 1440 点，进程重启归零——曲线与异动从"采样中"逐渐长出来是预期行为。
+    """
+
+    def __init__(self, max_points: int = 24 * 60):
+        self.rings: dict[int, deque] = {}
+        self._max = max_points
+
+    def sample(self, items: list[dict], min_interval: float = 55.0) -> None:
+        now = time.time()
+        for it in items:
+            players = it.get("players")
+            if players is None:
+                continue
+            ring = self.rings.setdefault(it["appid"], deque(maxlen=self._max))
+            if ring and now - ring[-1][0] < min_interval:
+                continue
+            ring.append((now, players))
+
+    def spark(self, appid: int, n: int = 40) -> list[int]:
+        ring = self.rings.get(appid)
+        if not ring:
+            return []
+        return downsample([p for _, p in ring], n)
+
+    def points(self, appid: int) -> list[tuple[float, int]]:
+        ring = self.rings.get(appid)
+        return [(ts, p) for ts, p in ring] if ring else []
+
+
+HISTORY = HistoryRing()
+
+# 异动判定：最近 30 分钟均值 vs 之前 2 小时基线，涨 30% 且基线≥200 人才算
+# （基线下限过滤小基数噪声；攒够 ~2.5h 采样才开始识别，之前返回 None）
+SURGE_RECENT, SURGE_BASELINE, SURGE_RATIO, SURGE_FLOOR = 30, 120, 1.3, 200
+
+
+def surge_pct(appid: int) -> int | None:
+    vals = [p for _, p in HISTORY.rings.get(appid, ())]
+    need = SURGE_RECENT + SURGE_BASELINE
+    if len(vals) < need:
+        return None
+    base = vals[-need:-SURGE_RECENT]
+    rec = vals[-SURGE_RECENT:]
+    bmean = sum(base) / len(base)
+    rmean = sum(rec) / len(rec)
+    if bmean < SURGE_FLOOR or rmean < bmean * SURGE_RATIO:
+        return None
+    return round((rmean / bmean - 1) * 100)
+
+
+def briefing_facts(mp_items: list[dict], ftk_items: list[dict]) -> dict:
+    """今日速览聚合：只消费已抓好的榜单数据，不发任何网络请求。"""
+    surges = sorted(
+        (
+            {"appid": it["appid"], "name": it["name"], "url": it["url"],
+             "pct": it["surge"], "players": it.get("players")}
+            for it in mp_items
+            if it.get("surge")
+        ),
+        key=lambda s: s["pct"],
+        reverse=True,
+    )[:3]
+    return {
+        "total_online": sum(it.get("players") or 0 for it in mp_items),
+        "new_entries": sum(1 for it in mp_items if it.get("is_new")),
+        "surges": surges,
+        "ftk_count": len(ftk_items),
+        "ftk_names": [it["name"] for it in ftk_items[:3]],
+        "sampling": sum(1 for it in mp_items if it.get("surge") is None),
+    }

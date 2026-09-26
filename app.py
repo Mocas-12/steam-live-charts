@@ -3,7 +3,8 @@
 数据抓取统一走共享同步层 steamdata.py（asyncio.to_thread 调用，
 与 Streamlit 端完全同一条代码路径），本文件只负责 TTL 缓存 + 静态前端托管：
 - 六大榜单端点 /api/*（最热游玩 60s / 搜索类 120s / 新品 600s 顶层缓存）
-- /api/history/{appid} 24h 在线采样查询（内存态，随访问积累，重启归零）
+- /api/briefing 今日速览（聚合缓存数据，零额外上游请求）
+- /api/history/{appid} 24h 在线采样查询（steamdata.HISTORY 内存态，重启归零）
 - 限时免费看门狗：设置 NTFY_TOPIC 后，新活动出现即经 ntfy.sh 推送
 - /healthz 存活探针
 """
@@ -12,7 +13,6 @@ import asyncio
 import logging
 import os
 import time
-from collections import deque
 from contextlib import asynccontextmanager
 
 import httpx
@@ -21,54 +21,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import steamdata
+from steamdata import briefing_facts
 
 log = logging.getLogger("steam-live-charts")
 
 REFRESH_SECONDS = 60  # 前端轮询节奏，与最热榜缓存一致
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "").strip()  # ntfy.sh 主题名；留空关闭限时免费推送
 FTK_POLL_SECONDS = 300  # 看门狗轮询节奏（走同一份 TTL 缓存，不增加上游压力）
-
-
-def downsample(values: list, n: int = 40) -> list:
-    """等距抽 n 个点（不足 n 全保留），右端点对齐最新值。"""
-    if len(values) <= n:
-        return list(values)
-    step = len(values) / n
-    out = [values[int(i * step)] for i in range(n)]
-    out[-1] = values[-1]
-    return out
-
-
-class HistoryRing:
-    """appid -> deque[(ts, players)] 的 24h 滚动采样。
-
-    采样随榜单请求发生（缓存命中靠 min_interval 去重），内存保留 1440 点，
-    重启归零——sparkline 从"采样中"逐渐长出来是预期行为。
-    """
-
-    def __init__(self, max_points: int = 24 * 60):
-        self.rings: dict[int, deque] = {}
-        self._max = max_points
-
-    def sample(self, items: list[dict], min_interval: float = 55.0) -> None:
-        now = time.time()
-        for it in items:
-            players = it.get("players")
-            if players is None:
-                continue
-            ring = self.rings.setdefault(it["appid"], deque(maxlen=self._max))
-            if ring and now - ring[-1][0] < min_interval:
-                continue
-            ring.append((now, players))
-
-    def spark(self, appid: int, n: int = 40) -> list[int]:
-        ring = self.rings.get(appid)
-        if not ring:
-            return []
-        return downsample([p for _, p in ring], n)
-
-
-history = HistoryRing()
 
 
 class TTLCache:
@@ -249,22 +208,30 @@ async def api_free_games(force: bool = False):
 @app.get("/api/most-played")
 async def api_most_played(force: bool = False):
     # build_most_played = 官方榜 + 逐款实时在线(并发20) + 详情(30min缓存)
-    # + 社区页名字兜底(24h缓存)，官方每日快照按当前在线重排
+    # + 社区页名字兜底(24h缓存) + 24h采样(steamdata.HISTORY)，
+    # 官方每日快照按当前在线重排；spark/surge 字段在数据层内嵌
     items = await charts_cache.get("most_played", to_thread(steamdata.build_most_played), force=force)
-    history.sample(items)  # 24h 滚动采样；缓存命中时靠 min_interval 去重
-    items = [{**it, "spark": history.spark(it["appid"])} for it in items]
     return {"meta": meta(), "items": items}
+
+
+@app.get("/api/briefing")
+async def api_briefing():
+    """今日速览：聚合各榜单缓存（键与榜单端点一致，命中缓存零上游请求）。"""
+    mp = await charts_cache.get("most_played", to_thread(steamdata.build_most_played))
+    ftk = await search_cache.get("free_to_keep", to_thread(steamdata.fetch_free_to_keep))
+    facts = briefing_facts(mp, ftk)
+    facts["updated_at"] = int(time.time())
+    return facts
 
 
 @app.get("/api/history/{appid}")
 async def api_history(appid: int):
-    ring = history.rings.get(appid, ())
-    return {"appid": appid, "points": [[ts, p] for ts, p in ring]}
+    return {"appid": appid, "points": steamdata.HISTORY.points(appid)}
 
 
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True, "ntfy": bool(NTFY_TOPIC), "history_games": len(history.rings)}
+    return {"ok": True, "ntfy": bool(NTFY_TOPIC), "history_games": len(steamdata.HISTORY.rings)}
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
