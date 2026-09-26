@@ -30,7 +30,7 @@
 - [Project Structure](#-project-structure)
 - [Quick Start](#-quick-start)
 - [Deployment](#-deployment)
-- [Customization](#-customization)
+- [Customization](#️-customization)
 - [FAQ](#-faq)
 - [License](#-license)
 
