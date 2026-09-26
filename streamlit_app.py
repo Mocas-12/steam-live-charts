@@ -5,6 +5,7 @@ st.cache_data 控制上游请求频率，st.fragment(run_every=60s) 让榜单原
 """
 
 import html as htmllib
+import threading
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -377,7 +378,16 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 @st.fragment(run_every="60s")
 def render_rails():
-    items = load_most_played()
+    items, _err = request_most_played()
+    if not items:  # 构建中/失败：侧卡占位，绝不阻塞页面其余部分
+        st.markdown(
+            '<div class="gc-rail left"><div class="rail-title">▍此刻在线 TOP 3</div>'
+            '<div class="rail-loading">正在同步…</div></div>'
+            '<div class="gc-rail right"><div class="rail-title">▍REALTIME STATS</div>'
+            '<div class="rail-loading">正在同步…</div></div>',
+            unsafe_allow_html=True,
+        )
+        return
     total = sum(i.get("players") or 0 for i in items)
     medals = ["var(--gc-gold)", "#d7e0f0", "#e89a6b"]
     rows = "".join(
@@ -456,11 +466,6 @@ def load_free_games():
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
 
 
-@st.cache_data(ttl=60, show_spinner=False)
-def load_most_played():
-    return steamdata.build_most_played()
-
-
 # ---------- HTML 渲染 ----------
 
 
@@ -492,6 +497,55 @@ LOADING_PANEL = (
     '<div class="gc-panel"><div class="gc-loading">'
     '<i></i><i></i><i></i>正在从 Steam 同步最新数据…</div></div>'
 )
+
+ERROR_PANEL_TMPL = (
+    '<div class="gc-panel"><div class="gc-empty"><div class="ghost">ERR</div>'
+    '<div class="etitle">Steam 接口暂时不可用</div>'
+    '<div class="esub">{err} · 正在自动重试，通常一两分钟内恢复</div></div></div>'
+)
+
+# ---------- 最热游玩：后台线程构建（绝不阻塞页面渲染） ----------
+#
+# Cloud 的 IP 常被 Steam 限流，冷启动构建要一两分钟；若在 fragment 里同步
+# 等它，整个页面会停在 header（历史上反复出现"卡住"即此因）。改为：
+# request_most_played() 立即返回 (items|None, error|None)，构建在后台线程跑，
+# fragment 每 60s 重跑时自然捡到结果；有旧数据先展示（stale-while-revalidate）。
+MP_TTL = 60          # 数据新鲜期；过期即触发后台重建，旧数据继续展示
+MP_RETRY_COOLDOWN = 30  # 失败后的冷却期，防止限流风暴下反复硬撞
+
+_mp_lock = threading.Lock()
+_mp_state = {"status": "idle", "items": None, "error": None, "ts": 0.0}
+
+
+def _build_mp_thread():
+    try:
+        items = steamdata.build_most_played()
+        with _mp_lock:
+            _mp_state.update(status="ready", items=items, error=None, ts=time.time())
+    except Exception as e:
+        with _mp_lock:
+            _mp_state.update(status="error", error=str(e), ts=time.time())
+
+
+def request_most_played() -> tuple[list | None, str | None]:
+    with _mp_lock:
+        s = _mp_state
+        age = time.time() - s["ts"]
+        if s["status"] == "building":
+            return s["items"], None  # 构建中：有旧数据给旧数据
+        if s["status"] == "ready" and age <= MP_TTL:
+            return s["items"], None
+        if s["status"] == "error" and age < MP_RETRY_COOLDOWN:
+            return None, s["error"]  # 冷却期内不重启构建
+        s["status"] = "building"
+        threading.Thread(target=_build_mp_thread, daemon=True).start()
+        return s["items"], None  # 触发重建的同时把旧数据交出去
+
+
+def kick_most_played_rebuild():
+    """立即刷新按钮：重置状态，下个请求周期触发后台重建（页面不阻塞）。"""
+    with _mp_lock:
+        _mp_state.update(status="idle", ts=0.0)
 
 
 EMPTY_HTML = (
@@ -581,29 +635,40 @@ with head_r:
     if st.button("↻ 立即刷新", use_container_width=True):
         st.session_state["refreshing"] = True
         st.cache_data.clear()
+        kick_most_played_rebuild()
         st.rerun()
 
 if st.session_state.pop("refreshing", False):
-    st.toast("正在刷新全部榜单，最热游玩可能需要十几秒…", icon="🔄")
+    st.toast("正在后台刷新全部榜单，页面不会卡住；最热游玩一两分钟内就位", icon="🔄")
 
 render_rails()
 
 # ---------- 跑马灯资讯条 ----------
 
 
+def _safe(fn):
+    """跑马灯数据源容错：单个源失败不炸整个 fragment（Cloud 限流常态）。"""
+    try:
+        return fn()
+    except Exception:
+        return []
+
+
 @st.fragment(run_every="60s")
 def render_ticker():
     parts = []
-    for i in load_top_sellers()[:4]:
+    for i in _safe(load_top_sellers)[:4]:
         parts.append(f"热销 #{i['rank']} <strong>{i['name']}</strong> {i['price']['final'] or ''}")
-    for i in load_specials()[:2]:
+    for i in _safe(load_specials)[:2]:
         if i["price"]["pct"]:
             parts.append(f"特惠 {i['price']['pct']}% <strong>{i['name']}</strong> {i['price']['final']}")
-    ftk = load_free_to_keep()
+    ftk = _safe(load_free_to_keep)
     for i in ftk[:3]:
         parts.append(f"限时免费入库 <strong>{i['name']}</strong>（原价 {i['price']['original']}）")
     if not ftk:
         parts.append("限时免费入库 · 当前无活动，周末再多来看看")
+    if not parts:
+        parts.append("正在同步 Steam 数据…")
     seq = "".join(f'<span class="ti"><b>▮</b>{p}</span>' for p in parts)
     st.markdown(
         f'<div class="gc-ticker"><div class="gc-ticker-track">{seq}{seq}</div></div>',
@@ -619,9 +684,13 @@ render_ticker()
 @st.fragment(run_every="60s")
 def render_briefing():
     try:
-        mp = load_most_played()
-        ftk = load_free_to_keep()
+        ftk = _safe(load_free_to_keep)
     except Exception:
+        ftk = []
+    mp, _err = request_most_played()
+    if not mp:
+        st.markdown('<div class="gc-briefing"><span class="bi">数据同步中…</span></div>',
+                    unsafe_allow_html=True)
         return
     b = steamdata.briefing_facts(mp, ftk)
     parts = []
@@ -667,59 +736,66 @@ def render_most_played():
     q = st.text_input("筛选", key="q_played", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
     box = st.empty()
+    items, err = request_most_played()
+    if items:
+        box.markdown(
+            updated_line() + rows_html(items, "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True, query=q),
+            unsafe_allow_html=True,
+        )
+    elif err:
+        box.markdown(ERROR_PANEL_TMPL.format(err=_esc(err)), unsafe_allow_html=True)
+    else:
+        box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+
+
+def _board(fn, title, sub, query, stats=False):
+    """榜单 fragment 通用体：先渲染加载骨架，单个接口失败只影响本榜不炸整页。"""
+    box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
+    try:
+        items = fn()
+    except Exception as e:
+        box.markdown(ERROR_PANEL_TMPL.format(err=_esc(e)), unsafe_allow_html=True)
+        return
     box.markdown(
-        updated_line() + rows_html(load_most_played(), "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True, query=q),
+        updated_line() + rows_html(items, title, sub, stats=stats, query=query),
         unsafe_allow_html=True,
     )
+
+
+@st.fragment(run_every="60s")
+def render_sellers():
+    q = st.text_input("筛选", key="q_sellers", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
+    _board(load_top_sellers, "热门畅销商品", "TOP 50 · BY UNITS SOLD", q)
 
 
 @st.fragment(run_every="60s")
 def render_free_to_keep():
     q = st.text_input("筛选", key="q_ftk", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
-    box = st.empty()
-    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
-    box.markdown(
-        updated_line() + rows_html(load_free_to_keep(), "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领", query=q),
-        unsafe_allow_html=True,
-    )
+    _board(load_free_to_keep, "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领", q)
 
 
 @st.fragment(run_every="60s")
 def render_specials():
     q = st.text_input("筛选", key="q_specials", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
-    box = st.empty()
-    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
-    box.markdown(
-        updated_line() + rows_html(load_specials(), "特惠专区", "TOP 50 · HOT DEALS", query=q),
-        unsafe_allow_html=True,
-    )
+    _board(load_specials, "特惠专区", "TOP 50 · HOT DEALS", q)
 
 
 @st.fragment(run_every="60s")
 def render_new():
     q = st.text_input("筛选", key="q_new", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
-    box = st.empty()
-    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
-    box.markdown(
-        updated_line() + rows_html(load_new_releases(), "新品上架", "TOP 30 · NEW RELEASES", query=q),
-        unsafe_allow_html=True,
-    )
+    _board(load_new_releases, "新品上架", "TOP 30 · NEW RELEASES", q)
 
 
 @st.fragment(run_every="60s")
 def render_free():
     q = st.text_input("筛选", key="q_free", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
-    box = st.empty()
-    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
-    box.markdown(
-        updated_line() + rows_html(load_free_games(), "免费游戏", "TOP 50 · FREE TO PLAY", query=q),
-        unsafe_allow_html=True,
-    )
+    _board(load_free_games, "免费游戏", "TOP 50 · FREE TO PLAY", q)
 
 
 with tab_sellers:
