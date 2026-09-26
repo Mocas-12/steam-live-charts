@@ -44,7 +44,10 @@
 - 🀄 **Simplified Chinese**: localized titles, genres and cover art (`cc=cn&l=schinese`)
 - 🔄 **Auto refresh every 60s**: countdown + manual refresh on the FastAPI site; `st.fragment` in-place rerun on Streamlit — neither loses your current tab
 - 🧯 **Resilient fallbacks**: delisted / region-locked games (e.g. Rocket League) get their names from Steam Community pages; stale cache is served when upstream hiccups; a parse-layout sentinel raises instead of silently blanking a board if Steam ever changes its search markup
-- 📈 **24h trend sparklines**: every Most Played row carries a rolling 24-hour player-count sparkline (gold line, green live dot; sampled in memory while the server runs, full ring at `/api/history/{appid}`) — FastAPI site only
+- 📈 **24h trend sparklines**: every Most Played row carries a rolling 24-hour player-count sparkline colored by trend (green up / red down / gold flat; sampled in memory while the server runs, full ring at `/api/history/{appid}`) — FastAPI site only
+- 📡 **Daily briefing strip**: an at-a-glance line under the header — total online now, 🔥 surging games (30-min window vs 2-hour baseline), new entries, live giveaways — every visit tells you what changed in 3 seconds
+- ⭐ **Watchlist** (FastAPI site): star any game to follow it, one click on "★ 我的关注" filters every board to your stars, and a star turns green the moment a watched game's discount deepens
+- ✨ **Restrained live motion**: player counts flash gold when they change, covers zoom slightly on hover, surge badges breathe — deliberately subtle, the Cinematic calm stays
 - 🔍 **In-board filter**: type a game name to instantly filter the visible board — one box for all tabs on the FastAPI site, per-tab boxes on Streamlit
 - 🔔 **Free-to-keep push**: set the `NTFY_TOPIC` env var and get an ntfy.sh notification the moment a new 100%-off giveaway appears (off by default)
 - 🗂️ **Daily snapshots**: a scheduled GitHub Action freezes all six boards into `archive/YYYY-MM-DD.json` every day at Beijing midnight
