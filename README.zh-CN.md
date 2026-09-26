@@ -110,7 +110,7 @@ python -m uvicorn app:app --host 127.0.0.1 --port 8123
 # Windows 可直接双击 run.bat
 ```
 
-打开 http://127.0.0.1:8123/ ；JSON 接口在 `/api/top-sellers`、`/api/most-played`、`/api/specials`。
+打开 http://127.0.0.1:8123/ ；JSON 接口在 `/api/*`（top-sellers / most-played / specials / new-releases / free-games / free-to-keep / briefing / history/{appid}），存活探针为 `/healthz`。
 
 **方案 B · Streamlit**
 

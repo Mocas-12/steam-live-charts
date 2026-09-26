@@ -110,7 +110,7 @@ python -m uvicorn app:app --host 127.0.0.1 --port 8123
 # Windows: double-click run.bat
 ```
 
-Open http://127.0.0.1:8123/ — the JSON APIs live under `/api/top-sellers`, `/api/most-played`, `/api/specials`.
+Open http://127.0.0.1:8123/ — the JSON APIs live under `/api/*` (top-sellers / most-played / specials / new-releases / free-games / free-to-keep / briefing / history/{appid}), liveness probe at `/healthz`.
 
 **Option B · Streamlit**
 
