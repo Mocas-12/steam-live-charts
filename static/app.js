@@ -265,7 +265,10 @@ function updateMeta(data) {
 
 /* ---------- 数据加载 ---------- */
 
-async function load(tab, { silent = false, force = false } = {}) {
+async function load(rawTab, { silent = false, force = false } = {}) {
+  // 外部输入重绑定为白名单校验后的常量表键值：非榜单名直接拒绝，切断 URL/选择器污点
+  const tab = Object.prototype.hasOwnProperty.call(API, rawTab) ? rawTab : null;
+  if (tab === null) return;
   if (state.loading[tab]) return;
   state.loading[tab] = true;
   if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml();
