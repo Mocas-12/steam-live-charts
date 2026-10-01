@@ -774,13 +774,13 @@ def _safe(fn):
 def render_ticker():
     parts = []
     for i in _safe(load_top_sellers)[:4]:
-        parts.append(f"热销 #{i['rank']} <strong>{i['name']}</strong> {i['price']['final'] or ''}")
+        parts.append(f"热销 #{i['rank']} <strong>{_esc(i['name'])}</strong> {_esc(i['price']['final'] or '')}")
     for i in _safe(load_specials)[:2]:
         if i["price"]["pct"]:
-            parts.append(f"特惠 {i['price']['pct']}% <strong>{i['name']}</strong> {i['price']['final']}")
+            parts.append(f"特惠 {i['price']['pct']}% <strong>{_esc(i['name'])}</strong> {_esc(i['price']['final'])}")
     ftk = _safe(load_free_to_keep)
     for i in ftk[:3]:
-        parts.append(f"限时免费入库 <strong>{i['name']}</strong>（原价 {i['price']['original']}）")
+        parts.append(f"限时免费入库 <strong>{_esc(i['name'])}</strong>（原价 {_esc(i['price']['original'])}）")
     if not ftk:
         parts.append("限时免费入库 · 当前无活动，周末再多来看看")
     if not parts:
