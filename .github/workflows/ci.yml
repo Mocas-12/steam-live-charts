@@ -8,6 +8,10 @@ on:
       - "cache/**"
   pull_request:
 
+# 默认最小权限；snapshot.yml 的推送 job 单独声明 contents: write
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest

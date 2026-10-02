@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # 运行时依赖已 pin ==，升级一律走 PR（本地 pytest 把关）
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
