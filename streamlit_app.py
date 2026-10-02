@@ -799,10 +799,7 @@ render_ticker()
 
 @st.fragment(run_every="60s")
 def render_briefing():
-    try:
-        ftk = _safe(load_free_to_keep)
-    except Exception:
-        ftk = []
+    ftk = _safe(load_free_to_keep)   # _safe 内部已兜底，永不抛出
     mp, _err, _built = request_most_played()
     if not mp:
         st.markdown('<div class="gc-briefing"><span class="bi">数据同步中…</span></div>',
@@ -833,18 +830,6 @@ render_briefing()
 tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk = st.tabs(
     ["最热游玩", "热销商品", "特惠专区", "新品上架", "免费游戏", "限时免费"]
 )
-
-
-@st.fragment(run_every="60s")
-def render_sellers():
-    q = st.text_input("筛选", key="q_sellers", placeholder="🔍 筛选游戏名…",
-                      label_visibility="collapsed").strip().lower()
-    box = st.empty()
-    box.markdown(LOADING_PANEL, unsafe_allow_html=True)
-    box.markdown(
-        updated_line() + rows_html(load_top_sellers(), "热门畅销商品", "TOP 50 · BY UNITS SOLD", query=q),
-        unsafe_allow_html=True,
-    )
 
 
 def cached_line(built_at: float) -> str:

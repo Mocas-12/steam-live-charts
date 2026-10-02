@@ -46,14 +46,6 @@ def _trim_search(items):
     ]
 
 
-def write_seeds():
-    """把本次构建的详情与完整榜单写为仓库种子——冷启动零等待的底气。"""
-    sd.write_detail_seed()
-    mp = sd.build_most_played.__wrapped__() if hasattr(sd.build_most_played, "__wrapped__") else None
-    # last_mp 种子直接复用 build_snapshot 里已构建的数据
-    return None
-
-
 def build_snapshot(mp_items=None):
     """抓六榜精华。mp_items 传入时复用已构建的最热游玩数据（顺带写种子）。"""
     if mp_items is None:
