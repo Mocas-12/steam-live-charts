@@ -364,3 +364,124 @@ class TestSearchParseSentinel:
         self._stub(monkeypatch, SEARCH_HTML)
         rows = steamdata.fetch_search()
         assert [it["appid"] for it in rows] == [570, 730]
+
+
+# ---------- Epic 每周免费 ----------
+
+
+def _iso(offset_s: float) -> str:
+    """相对当前时刻的 ISO 时间串（fetch_epic_free 内部用真实 time.time()）。"""
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(time.time() + offset_s, timezone.utc).isoformat()
+
+
+def _epic_element(title, *, discount=0, original=9300, promo_pct=0,
+                  start=-1000.0, end=200000.0, slug="test-slug"):
+    promo = {
+        "startDate": _iso(start),
+        "endDate": _iso(end),
+        "discountSetting": {"discountPercentage": promo_pct},
+    }
+    return {
+        "title": title,
+        "id": f"id-{title}",
+        "urlSlug": slug,
+        "productSlug": None,
+        "seller": {"displayName": "Test Studio"},
+        "keyImages": [{"type": "OfferImageWide", "url": "https://cdn1.epicgames.com/w.jpg"}],
+        "price": {"totalPrice": {"discountPrice": discount, "originalPrice": original}},
+        "promotions": {"promotionalOffers": [{"promotionalOffers": [
+            {"promotionalOffer": promo}]}]},
+    }
+
+
+class TestEpicCents:
+    def test_converts_and_strips(self):
+        assert steamdata._epic_cents(9300) == "¥93"
+        assert steamdata._epic_cents(9999) == "¥99.99"
+
+    def test_invalid_values_return_none(self):
+        assert steamdata._epic_cents(0) is None
+        assert steamdata._epic_cents(None) is None
+        assert steamdata._epic_cents("abc") is None
+
+
+class TestEpicFreeWindow:
+    def test_active_window_preferred(self):
+        now = time.time()
+        e = {"promotions": {"promotionalOffers": [{"promotionalOffers": [
+            {"promotionalOffer": {"discountSetting": {"discountPercentage": 0},
+                                  "startDate": _iso(-100), "endDate": _iso(1000)}}]}],
+            "upcomingPromotionalOffers": []}}
+        win = steamdata._epic_free_window(e, now)
+        assert win is not None and win[2] is True
+
+    def test_future_window_when_no_active(self):
+        now = time.time()
+        e = {"promotions": {"promotionalOffers": [], "upcomingPromotionalOffers": [
+            {"promotionalOffers": [{"promotionalOffer": {
+                "discountSetting": {"discountPercentage": 0},
+                "startDate": _iso(5000), "endDate": _iso(9000)}}]}]}}
+        win = steamdata._epic_free_window(e, now)
+        assert win is not None and win[2] is False
+
+    def test_non_zero_pct_ignored(self):
+        e = {"promotions": {"promotionalOffers": [{"promotionalOffers": [
+            {"promotionalOffer": {"discountSetting": {"discountPercentage": 50},
+                                  "startDate": _iso(-100), "endDate": _iso(1000)}}]}]}}
+        assert steamdata._epic_free_window(e, time.time()) is None
+
+
+class TestFetchEpicFree:
+    def _stub(self, monkeypatch, payload):
+        monkeypatch.setattr(steamdata, "get_client", lambda: _FakeClient(payload))
+
+    def test_active_first_then_upcoming(self, monkeypatch):
+        payload = {"data": {"Catalog": {"searchStore": {"elements": [
+            # 即将免费（晚开始的后排）——现在还是付费游戏，照常预告
+            _epic_element("未来作", discount=19900, start=500000, end=800000,
+                          original=19900),
+            # 即将免费（早开始的在前）
+            _epic_element("下周作", discount=12900, start=300000, end=600000),
+            # 进行中（早结束的在前）
+            _epic_element("先结束", end=100000),
+            _epic_element("后结束", end=190000),
+            # 付费且无免费窗口 -> 跳过
+            _epic_element("付费作", discount=16900, original=16900),
+        ]}}}}
+        self._stub(monkeypatch, payload)
+        rows = steamdata.fetch_epic_free()
+        assert [r["name"] for r in rows] == ["先结束", "后结束", "下周作", "未来作"]
+        act = rows[0]
+        assert act["appid"] == "epic:test-slug"
+        assert act["url"] == "https://store.epicgames.com/zh-CN/p/test-slug"
+        assert act["image"] == "https://cdn1.epicgames.com/w.jpg"
+        assert act["price"] == {"free": True, "final": "免费领取",
+                                "original": "¥93", "pct": -100}
+        assert act["released"].startswith("领至 ")
+        up = rows[2]
+        assert up["price"] == {"free": False, "final": "即将免费",
+                               "original": None, "pct": None}
+        assert up["released"].endswith("开领")
+
+    def test_active_window_but_not_free_yet_skipped(self, monkeypatch):
+        """窗口进行中但实价非 0（目录滞后/区服差异）：不谎报免费。"""
+        payload = {"data": {"Catalog": {"searchStore": {"elements": [
+            _epic_element("滞后作", discount=9300),
+        ]}}}}
+        self._stub(monkeypatch, payload)
+        assert steamdata.fetch_epic_free() == []
+
+    def test_no_promo_window_skipped(self, monkeypatch):
+        elem = _epic_element("无常 window")
+        elem["promotions"] = {}
+        self._stub(monkeypatch, {"data": {"Catalog": {"searchStore": {
+            "elements": [elem]}}}})
+        assert steamdata.fetch_epic_free() == []
+
+    def test_bad_payload_raises_not_silent(self, monkeypatch):
+        """结构对不上时抛错走上游失败路径，不能静默变空榜。"""
+        self._stub(monkeypatch, {"data": None})
+        with pytest.raises(Exception):
+            steamdata.fetch_epic_free()

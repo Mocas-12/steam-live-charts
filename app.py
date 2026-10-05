@@ -2,7 +2,7 @@
 
 数据抓取统一走共享同步层 steamdata.py（asyncio.to_thread 调用，
 与 Streamlit 端完全同一条代码路径），本文件只负责 TTL 缓存 + 静态前端托管：
-- 六大榜单端点 /api/*（最热游玩 60s / 搜索类 120s / 新品 600s 顶层缓存）
+- 七大榜单端点 /api/*（最热游玩 60s / 搜索类 120s / 新品 600s 顶层缓存）
 - /api/briefing 今日速览（聚合缓存数据，零额外上游请求）
 - /api/history/{appid} 24h 在线采样查询（steamdata.HISTORY 内存态，重启归零）
 - 限时免费看门狗：设置 NTFY_TOPIC 后，新活动出现即经 ntfy.sh 推送
@@ -136,6 +136,9 @@ async def ftk_watchdog():
 
 
 async def notify_ntfy(title: str, body: str) -> None:
+    if not NTFY_TOPIC:  # 留空 = 关闭推送（空 topic POST 到 ntfy.sh 根路径只会 400）
+        return
+
     def _post():
         return httpx.post(
             f"https://ntfy.sh/{NTFY_TOPIC}",
@@ -203,6 +206,12 @@ async def api_free_games(force: bool = False):
         if it["price"]["final"] and it["price"]["free"]  # 过滤混入的免费试玩付费游戏
     ]
     return {"meta": meta(), "items": items}
+
+
+@app.get("/api/epic-free")
+async def api_epic_free(force: bool = False):
+    items = await search_cache.get("epic_free", to_thread(steamdata.fetch_epic_free), force=force)
+    return {"meta": meta(), "items": [{**it, "rank": i + 1} for i, it in enumerate(items)]}
 
 
 @app.get("/api/most-played")

@@ -47,7 +47,7 @@ def _trim_search(items):
 
 
 def build_snapshot(mp_items=None):
-    """抓六榜精华。mp_items 传入时复用已构建的最热游玩数据（顺带写种子）。"""
+    """抓七榜精华。mp_items 传入时复用已构建的最热游玩数据（顺带写种子）。"""
     if mp_items is None:
         mp_items = sd.build_most_played()
     return {
@@ -60,6 +60,7 @@ def build_snapshot(mp_items=None):
             "new-releases": _trim_search(sd.fetch_new_releases()),
             "free-games": _trim_search(sd.fetch_search(False, free=True)),
             "free-to-keep": _trim_search(sd.fetch_free_to_keep()),
+            "epic-free": _trim_search(sd.fetch_epic_free()),
         },
     }
 

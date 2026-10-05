@@ -36,7 +36,7 @@
 
 ## ✨ 特徴
 
-- 🏆 **6 つのライブランキング**（デフォルト表示は Most Played）：Most Played（Top 100）· Top Sellers（Top 50）· Specials（Top 50）· New Releases（Top 30）· Free Games（Top 50）· Free To Keep（100% オフの無償配布。開催中がなければ空状態）
+- 🏆 **7 つのライブランキング**（デフォルト表示は Most Played）：Most Played（Top 100）· Top Sellers（Top 50）· Specials（Top 50）· New Releases（Top 30）· Free Games（Top 50）· Free To Keep（100% オフの無償配布。開催中がなければ空状態）· Epic Free（Epic Games Store の毎週無料タイトル、開始予定も予告）
 - 🎨 **Aurora Glass テーマ**（2026 デザイン言語）：深宇宙の背景に liquid-glass の表面、デューオーロラ——ブランドゴールド（火）× 電光ブルー（氷）——フィルムグレインの質感、大型グラデーションタイポグラフィ、金/銀/銅のグラデーションランキング数字。あえて Steam のクローンにはしない
 - 📊 **ライブティッカー & スタットカード**：上部に人気タイトルのマーキー。ワイド画面ではサイドカードに「今プレイ中 TOP 3」、TOP100 合計同時接続数、更新時刻を表示
 - 👥 **リアルタイムプレイヤー数**：全ゲームを Steam 公式統計 API に個別問い合わせ——Most Played は**現在の**同時接続数で並べ替え、本日のピークと週間順位変動（▲ 上昇 / ▼ 低下 / NEW）を表示
@@ -66,14 +66,14 @@ flowchart LR
     E --> F
 ```
 
-1. **取得**：Top Sellers / Specials / Free Games はストア検索エンドポイントを `TopSellers` ソートで取得（割引は `specials=1`、無料ボードは `maxprice=free`——真に無料のタイトルのみにフィルタ）。**Free To Keep** は `specials=1 & maxprice=free` の交差から -100% 割引行のみを抽出（Steam にそういうチャートはないため、無償配布がなければタブはフレンドリーな空状態を表示）。New Releases は厳選 `featuredcategories` フィードから。Most Played の骨格は `GetMostPlayedGames`、その後各ゲームのライブ プレイヤー数を個別取得（`GetNumberOfCurrentPlayers`、同時実行 20）
+1. **取得**：Top Sellers / Specials / Free Games はストア検索エンドポイントを `TopSellers` ソートで取得（割引は `specials=1`、無料ボードは `maxprice=free`——真に無料のタイトルのみにフィルタ）。**Free To Keep** は `specials=1 & maxprice=free` の交差から -100% 割引行のみを抽出（Steam にそういうチャートはないため、無償配布がなければタブはフレンドリーな空状態を表示）。New Releases は厳選 `featuredcategories` フィードから。Most Played の骨格は `GetMostPlayedGames`、その後各ゲームのライブ プレイヤー数を個別取得（`GetNumberOfCurrentPlayers`、同時実行 20）。**Epic Free** は Epic Games Store の公開プロモーション API `freeGamesPromotions`（キー不要）から：開催中は終了日順、開始予定は開始日順に予告
 2. **並べ替え**：公式チャートは日次集計のため、Most Played は「リアルタイム」に忠実であるよう*現在の*プレイヤー数でソート。価格 / 名称 / ジャンルは `appdetails`（10 分キャッシュ）
 3. **フォールバック**：ストアページが消えたゲーム（削除 / 地域ロック）は Steam コミュニティ ハブのタイトルへフォールバック。上流失敗時はエラーではなく古いキャッシュを返す
 4. **描画**：FastAPI アプリはカウントダウン ポーリング付きの手書き Steam 風サイトを配信。Streamlit アプリは `st.markdown` + `st.fragment(run_every="60s")` で同じデザイン言語を注入
 
 ## 📖 使い方
 
-- **タブ**：6 つのランキング——自由に切り替え、各タブはその場で自己更新
+- **タブ**：7 つのランキング——自由に切り替え、各タブはその場で自己更新
 - **Most Played**：# 列はライブ プレイヤー数に追従。右側に「当前在线（現在の接続数）」と「今日峰值（本日のピーク）」。周变化は先週の公式チャートと比較（▲ 上昇 / ▼ 低下 / 新上榜 NEW）
 - **価格**：常に人民元（データリージョン `cc=cn`）。割引ブロックはパーセント + 最終価格、定価に打ち消し線
 - **更新**：60 秒カウントダウンを待つか、↻ 刷新を押すか、F5——どちらでもバックエンドのキャッシュが Steam のレート制限に配慮します

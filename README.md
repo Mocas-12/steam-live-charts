@@ -36,7 +36,7 @@
 
 ## ✨ Features
 
-- 🏆 **Six live leaderboards** (Most Played opens by default): Most Played (Top 100) · Top Sellers (Top 50) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50) · Free To Keep (100%-off giveaways, empty-state when no promo is live)
+- 🏆 **Seven live leaderboards** (Most Played opens by default): Most Played (Top 100) · Top Sellers (Top 50) · Specials (Top 50) · New Releases (Top 30) · Free Games (Top 50) · Free To Keep (100%-off giveaways, empty-state when no promo is live) · Epic Free (weekly Epic Games Store giveaways, upcoming drops previewed)
 - 🎨 **Aurora Glass theme** (2026 design language): liquid-glass surfaces on a deep-space backdrop with dual aurora glows — brand gold (fire) × electric blue (ice) — film-grain texture, oversized gradient typography, and gradient gold/silver/bronze rank numerals; deliberately *not* a Steam clone
 - 📊 **Live ticker & stat cards**: a marquee of hot items across the top; on wide screens, side cards show the playing-now TOP 3, TOP100 total online and refresh time
 - 👥 **Real-time player counts**: every game is queried individually against Steam's official stats API — the Most Played board is re-ranked by *current* concurrent players and shows today's peak plus weekly rank movement (▲ up / ▼ down / NEW)
@@ -50,7 +50,7 @@
 - ✨ **Restrained live motion**: player counts flash gold when they change, covers zoom slightly on hover, surge badges breathe — deliberately subtle, the Aurora calm stays
 - 🔍 **In-board filter**: type a game name to instantly filter the visible board — one box for all tabs on the FastAPI site, per-tab boxes on Streamlit
 - 🔔 **Free-to-keep push**: set the `NTFY_TOPIC` env var and get an ntfy.sh notification the moment a new 100%-off giveaway appears (off by default)
-- 🗂️ **Daily snapshots**: a scheduled GitHub Action freezes all six boards into `archive/YYYY-MM-DD.json` every day at Beijing midnight
+- 🗂️ **Daily snapshots**: a scheduled GitHub Action freezes all seven boards into `archive/YYYY-MM-DD.json` every day at Beijing midnight
 - 🖥️ **Two frontends, one data layer**: a hand-crafted FastAPI + vanilla JS site and a Streamlit Cloud replica sharing the same `steamdata.py`
 - 📱 **Installable PWA**: the FastAPI site ships a web manifest + icons, so "Add to Home Screen" gives you an app-like live board
 
@@ -66,7 +66,7 @@ flowchart LR
     E --> F
 ```
 
-1. **Fetch**: the Top Sellers / Specials / Free Games boards come from the store search endpoint sorted by `TopSellers` (with `specials=1` for discounts, `maxprice=free` — filtered to truly-free titles — for the free board); **Free To Keep** is the intersection of `specials=1 & maxprice=free` keeping only -100% discount rows (Steam has no such chart, so the tab shows a friendly empty state when no giveaway is live); New Releases come from the curated `featuredcategories` feed. The Most Played skeleton comes from `GetMostPlayedGames`, then each game's live player count is fetched individually (`GetNumberOfCurrentPlayers`, concurrency 20)
+1. **Fetch**: the Top Sellers / Specials / Free Games boards come from the store search endpoint sorted by `TopSellers` (with `specials=1` for discounts, `maxprice=free` — filtered to truly-free titles — for the free board); **Free To Keep** is the intersection of `specials=1 & maxprice=free` keeping only -100% discount rows (Steam has no such chart, so the tab shows a friendly empty state when no giveaway is live); New Releases come from the curated `featuredcategories` feed. The Most Played skeleton comes from `GetMostPlayedGames`, then each game's live player count is fetched individually (`GetNumberOfCurrentPlayers`, concurrency 20). **Epic Free** comes from the Epic Games Store public promotions API `freeGamesPromotions` (keyless): active giveaways first by end date, upcoming drops previewed by start date
 2. **Re-rank**: the official chart is a daily rollup, so the Most Played board is sorted by *current* players to stay honest to "real-time"; prices/names/genres come from `appdetails` (10-min cache)
 3. **Fallbacks**: games whose store entry is gone (delisted / region-locked) fall back to the Steam Community hub title for their name; upstream failures serve stale cache instead of an error
 4. **Render**: the FastAPI app serves a hand-written Steam-styled site with countdown polling; the Streamlit app injects the same design language over `st.markdown` + `st.fragment(run_every="60s")`
@@ -89,7 +89,7 @@ steam-live-charts/
 ├── static/              # Frontend (index.html / steam.css / app.js + PWA manifest & icons)
 ├── tests/               # Offline unit tests (steamdata parsing + TTLCache + history ring)
 ├── scripts/
-│   └── snapshot.py      # Six-board daily archive writer (run by GitHub Actions)
+│   └── snapshot.py      # Seven-board daily archive writer (run by GitHub Actions)
 ├── archive/             # Daily snapshots: YYYY-MM-DD.json (committed by the Action)
 ├── .streamlit/          # config.toml (dark theme)
 ├── docs/
@@ -110,7 +110,7 @@ python -m uvicorn app:app --host 127.0.0.1 --port 8123
 # Windows: double-click run.bat
 ```
 
-Open http://127.0.0.1:8123/ — the JSON APIs live under `/api/*` (top-sellers / most-played / specials / new-releases / free-games / free-to-keep / briefing / history/{appid}), liveness probe at `/healthz`.
+Open http://127.0.0.1:8123/ — the JSON APIs live under `/api/*` (top-sellers / most-played / specials / new-releases / free-games / free-to-keep / epic-free / briefing / history/{appid}), liveness probe at `/healthz`.
 
 **Option B · Streamlit**
 

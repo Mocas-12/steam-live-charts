@@ -15,6 +15,7 @@ import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -245,6 +246,130 @@ def fetch_free_to_keep() -> list[dict]:
             f"搜索页解析 0 行（HTTP {r.status_code}，页面 {len(html)} 字节），Steam 页式可能已变更"
         )
     return [it for it in rows if it["price"]["pct"] == -100]
+
+
+# ---------- Epic 每周免费（官方 storefront 开放接口，免鉴权） ----------
+
+EPIC_PROMOS_URL = (
+    "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions"
+    "?locale=zh-CN&country=CN&allowCountries=CN"
+)
+_CN_TZ = timezone(timedelta(hours=8))
+
+
+def _epic_cents(v) -> str | None:
+    """Epic 价格分 → 展示文本（CNY）；0/None/解析失败 → None。"""
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    return f"¥{v / 100:.2f}".rstrip("0").rstrip(".")
+
+
+def _epic_image(e: dict) -> str:
+    imgs = e.get("keyImages") or []
+    for want in ("OfferImageWide", "OfferImageTall", "Thumbnail"):
+        for img in imgs:
+            if img.get("type") == want and img.get("url"):
+                return img["url"]
+    return next((img.get("url") or "" for img in imgs), "")
+
+
+def _epic_iso_ts(text) -> float | None:
+    try:
+        return datetime.fromisoformat(str(text).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _epic_free_window(e: dict, now: float):
+    """挑免费档促销窗口：进行中优先（先到期靠前），否则最近的即将开始。
+
+    返回 (start_ts, end_ts, active) 或 None（无 discountPercentage==0 的窗口）。
+    """
+    windows = []
+    promos = e.get("promotions") or {}
+    for grp in (promos.get("promotionalOffers") or []) + (
+        promos.get("upcomingPromotionalOffers") or []
+    ):
+        for off in grp.get("promotionalOffers") or []:
+            offer = off.get("promotionalOffer") or off
+            try:
+                pct = int(offer["discountSetting"]["discountPercentage"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if pct != 0:
+                continue
+            start, end = _epic_iso_ts(offer.get("startDate")), _epic_iso_ts(offer.get("endDate"))
+            if start is not None and end is not None:
+                windows.append((start, end))
+    if not windows:
+        return None
+    active = sorted((w for w in windows if w[0] <= now < w[1]), key=lambda w: w[1])
+    future = sorted((w for w in windows if w[0] > now), key=lambda w: w[0])
+    if active:
+        return (*active[0], True)
+    if future:
+        return (*future[0], False)
+    return None
+
+
+def fetch_epic_free() -> list[dict]:
+    """Epic 每周免费游戏：进行中在前（按结束时间），即将开始在后（按开始时间）。
+
+    促销窗口（discountPercentage==0）为准：进行中的要求实价 discountPrice==0
+    才敢报免费（防目录滞后谎报）；即将开始的现在仍是付费游戏，照常预告。
+    已常驻免费的游戏不进促销目录所以天然不会混入。空列表 = 当前无活动（罕见），
+    上层有空状态兜底；行结构与 Steam 榜单同构：released 放窗口文案，
+    price 放 原价/免费领取。
+    """
+    r = _get_backoff(EPIC_PROMOS_URL)
+    data = r.json().get("data") or {}
+    try:
+        elements = data["Catalog"]["searchStore"]["elements"]
+    except (KeyError, TypeError):
+        # GraphQL 信封对不上 = 改版信号，宁可抛错让 TTLCache 回退旧数据
+        raise RuntimeError("Epic 促销接口返回结构异常（可能已改版）")
+    if not isinstance(elements, list):
+        raise RuntimeError("Epic 促销接口返回结构异常（可能已改版）")
+    now = time.time()
+    active_rows, upcoming_rows = [], []
+    for e in elements:
+        tp = (e.get("price") or {}).get("totalPrice") or {}
+        win = _epic_free_window(e, now)
+        if win is None:
+            continue
+        start, end, active = win
+        slug = e.get("productSlug") or e.get("urlSlug") or ""
+        seller = (e.get("seller") or {}).get("displayName")
+        row = {
+            "appid": f"epic:{slug or e.get('id') or e.get('title')}",
+            "name": (e.get("title") or "").strip(),
+            "image": _epic_image(e),
+            "url": f"https://store.epicgames.com/zh-CN/p/{slug}" if slug else "",
+            "genres": [seller] if seller else ["Epic 商城"],
+        }
+        if active:
+            if tp.get("discountPrice") != 0:
+                continue  # 窗口进行中但实价非 0（目录滞后/区服差异），不谎报免费
+            days = max(0, int((end - now) // 86400))
+            row["released"] = (
+                f"领至 {datetime.fromtimestamp(end, _CN_TZ):%m-%d}"
+                + (f" · 剩 {days} 天" if days else " · 最后一天")
+            )
+            row["price"] = {"free": True, "final": "免费领取",
+                            "original": _epic_cents(tp.get("originalPrice")), "pct": -100}
+            active_rows.append((end, row))
+        else:
+            # 即将免费：现在还是付费游戏，靠促销窗口预告
+            row["released"] = f"{datetime.fromtimestamp(start, _CN_TZ):%m-%d} 开领"
+            row["price"] = {"free": False, "final": "即将免费", "original": None, "pct": None}
+            upcoming_rows.append((start, row))
+    active_rows.sort(key=lambda p: p[0])
+    upcoming_rows.sort(key=lambda p: p[0])
+    return [row for _, row in active_rows + upcoming_rows]
 
 
 def fetch_new_releases() -> list[dict]:

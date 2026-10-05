@@ -571,6 +571,11 @@ def load_free_games():
     return [{**it, "rank": i + 1} for i, it in enumerate(items)]
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def load_epic_free():
+    return [{**it, "rank": i + 1} for i, it in enumerate(steamdata.fetch_epic_free())]
+
+
 # ---------- HTML 渲染 ----------
 
 
@@ -670,6 +675,12 @@ EMPTY_HTML = (
     '<div class="esub">Steam 免费入库活动零星出现（周末较多），开启后游戏永久入库 · 60 秒后自动复查</div></div>'
 )
 
+EMPTY_EPIC_HTML = (
+    '<div class="gc-empty"><div class="ghost">FREE</div>'
+    '<div class="etitle">Epic 当前没有可领取的免费游戏</div>'
+    '<div class="esub">Epic 商城每周轮换免费档，即将开始的也会预告在这里</div></div>'
+)
+
 
 def _fmt(n):
     return "—" if n is None else f"{n:,}"
@@ -711,16 +722,16 @@ def row_html(it, stats):
             f'{delta_html(it)}</a>')
 
 
-def rows_html(items, title, sub, stats=False, query=""):
+def rows_html(items, title, sub, stats=False, query="", empty_html=EMPTY_HTML):
     if query:  # 榜单内按游戏名筛选（fragment 内的输入，rerun 不丢 tab 状态）
         items = [it for it in items if query in (it.get("name") or "").lower()]
     if not items:
-        if query:  # 被筛空（与限时免费的真·空状态区分）
+        if query:  # 被筛空（与限时免费/Epic 的真·空状态区分）
             body = (f'<div class="gc-empty"><div class="ghost">0</div>'
                     f'<div class="etitle">没有匹配「{_esc(query)}」的游戏</div>'
                     f'<div class="esub">换个关键词，或清空筛选框看完整榜单</div></div>')
         else:
-            body = EMPTY_HTML
+            body = empty_html
         return (f'<div class="gc-panel"><div class="gc-section">{title}'
                 f'<span class="sub">{sub}</span></div>{body}</div>')
     if stats:
@@ -783,6 +794,8 @@ def render_ticker():
         parts.append(f"限时免费入库 <strong>{_esc(i['name'])}</strong>（原价 {_esc(i['price']['original'])}）")
     if not ftk:
         parts.append("限时免费入库 · 当前无活动，周末再多来看看")
+    for i in _safe(load_epic_free)[:2]:
+        parts.append(f"Epic {_esc(i['price']['final'])} <strong>{_esc(i['name'])}</strong> · {_esc(i.get('released') or '')}")
     if not parts:
         parts.append("正在同步 Steam 数据…")
     seq = "".join(f'<span class="ti"><b>▮</b>{p}</span>' for p in parts)
@@ -827,8 +840,8 @@ render_briefing()
 
 # ---------- 六个榜单（fragment 每 60 秒原地刷新，不丢 tab 状态） ----------
 
-tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk = st.tabs(
-    ["最热游玩", "热销商品", "特惠专区", "新品上架", "免费游戏", "限时免费"]
+tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk, tab_epic = st.tabs(
+    ["最热游玩", "热销商品", "特惠专区", "新品上架", "免费游戏", "限时免费", "Epic 免费"]
 )
 
 
@@ -858,7 +871,7 @@ def render_most_played():
         box.markdown(LOADING_PANEL, unsafe_allow_html=True)
 
 
-def _board(fn, title, sub, query, stats=False):
+def _board(fn, title, sub, query, stats=False, empty_html=EMPTY_HTML):
     """榜单 fragment 通用体：先渲染加载骨架，单个接口失败只影响本榜不炸整页。"""
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
@@ -868,7 +881,8 @@ def _board(fn, title, sub, query, stats=False):
         box.markdown(ERROR_PANEL_TMPL.format(err=_esc(e)), unsafe_allow_html=True)
         return
     box.markdown(
-        updated_line() + rows_html(items, title, sub, stats=stats, query=query),
+        updated_line() + rows_html(items, title, sub, stats=stats, query=query,
+                                   empty_html=empty_html),
         unsafe_allow_html=True,
     )
 
@@ -908,6 +922,14 @@ def render_free():
     _board(load_free_games, "免费游戏", "TOP 50 · FREE TO PLAY", q)
 
 
+@st.fragment(run_every="60s")
+def render_epic():
+    q = st.text_input("筛选", key="q_epic", placeholder="🔍 筛选游戏名…",
+                      label_visibility="collapsed").strip().lower()
+    _board(load_epic_free, "Epic 喜加一", "FREE @ EPIC · 每周轮换，即将开始的也预告",
+           q, empty_html=EMPTY_EPIC_HTML)
+
+
 with tab_sellers:
     render_sellers()
 with tab_played:
@@ -920,9 +942,11 @@ with tab_new:
     render_new()
 with tab_free:
     render_free()
+with tab_epic:
+    render_epic()
 
 st.markdown(
-    '<div class="gc-footer">本页面为非官方第三方工具，与 Valve Corporation 无从属关系。'
-    "榜单数据实时来自 Steam 官方公开接口，游戏名称、图片与价格版权归 Valve 及相应开发商所有。</div>",
+    '<div class="gc-footer">本页面为非官方第三方工具，与 Valve Corporation 及 Epic Games 无从属关系。'
+    "榜单数据实时来自 Steam 与 Epic 商城官方公开接口，游戏名称、图片与价格版权归 Valve、Epic 及相应开发商所有。</div>",
     unsafe_allow_html=True,
 )
