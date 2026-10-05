@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 cache/details_live.json
 cache/last_most_played.json
+.mimosa/
