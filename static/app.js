@@ -7,7 +7,24 @@ const API = {
   "specials": "/api/specials",
   "new-releases": "/api/new-releases",
   "free-games": "/api/free-games",
+  "epic-free": "/api/epic-free",
 };
+
+/* 榜单名白名单：location.hash / DOM dataset 等外部输入的唯一净化入口。
+   逐字面量 case 等值匹配（标准允许列表形态），tab 名与 API 路径都只能
+   是编译期常量，后续 URL 与 CSS 选择器拼接不再携带任何外部输入。 */
+function resolveTab(raw) {
+  switch (raw) {
+    case "most-played": return "most-played";
+    case "top-sellers": return "top-sellers";
+    case "free-to-keep": return "free-to-keep";
+    case "specials": return "specials";
+    case "new-releases": return "new-releases";
+    case "free-games": return "free-games";
+    case "epic-free": return "epic-free";
+    default: return null;
+  }
+}
 
 const state = {
   active: "most-played",
@@ -169,11 +186,23 @@ function skeletonHtml() {
   ).join("");
 }
 
-function emptyHtml() {
+const EMPTY_TEXT = {
+  "free-to-keep": {
+    t: "当前没有限时免费入库活动",
+    s: "Steam 免费入库活动零星出现（周末较多），开启后游戏永久入库 · 60 秒后自动复查",
+  },
+  "epic-free": {
+    t: "Epic 当前没有可领取的免费游戏",
+    s: "Epic 商城每周轮换免费档，即将开始的也会预告在这里",
+  },
+};
+
+function emptyHtml(tab) {
+  const x = EMPTY_TEXT[tab] || EMPTY_TEXT["free-to-keep"];
   return `<div class="empty">
     <div class="ghost">FREE</div>
-    <div class="etitle">当前没有限时免费入库活动</div>
-    <div class="esub">Steam 免费入库活动零星出现（周末较多），开启后游戏永久入库 · 60 秒后自动复查</div>
+    <div class="etitle">${x.t}</div>
+    <div class="esub">${x.s}</div>
   </div>`;
 }
 
@@ -201,7 +230,7 @@ function render(tab) {
         + `<div class="esub">${state.watchOnly && !state.query.trim()
             ? "你关注的游戏不在当前榜单，切换 tab 或点名字前的 ☆ 关注更多"
             : "换个关键词，或清空筛选框看完整榜单"}</div></div>`
-      : emptyHtml();
+      : emptyHtml(tab);
     return;
   }
   const stats = tab === "most-played";
@@ -265,16 +294,29 @@ function updateMeta(data) {
 
 /* ---------- 数据加载 ---------- */
 
+function resolveApiUrl(tab) {
+  switch (tab) {
+    case "most-played": return "/api/most-played";
+    case "top-sellers": return "/api/top-sellers";
+    case "free-to-keep": return "/api/free-to-keep";
+    case "specials": return "/api/specials";
+    case "new-releases": return "/api/new-releases";
+    case "free-games": return "/api/free-games";
+    case "epic-free": return "/api/epic-free";
+    default: return "/api/most-played";
+  }
+}
+
 async function load(rawTab, { silent = false, force = false } = {}) {
-  // 外部输入重绑定为白名单校验后的常量表键值：非榜单名直接拒绝，切断 URL/选择器污点
-  const tab = Object.prototype.hasOwnProperty.call(API, rawTab) ? rawTab : null;
+  // 外部输入先过字面量白名单净化：非榜单名直接拒绝，URL 由常量前缀 + 常量键拼接
+  const tab = resolveTab(rawTab);
   if (tab === null) return;
   if (state.loading[tab]) return;
   state.loading[tab] = true;
   if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml();
   $("#live-dot").style.background = "var(--link)";
   try {
-    const res = await fetch(API[tab] + (force ? "?force=1" : ""), { cache: "no-store" });
+    const res = await fetch(resolveApiUrl(tab) + (force ? "?force=1" : ""), { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     state.data[tab] = data.items;
@@ -353,8 +395,9 @@ function renderRails(mp) {
     + `<div class="stat"><div class="big">${t}</div><div class="lbl">数据更新时间</div></div>`;
 }
 
-function switchTab(name) {
-  if (state.active === name) return;
+function switchTab(raw) {
+  const name = resolveTab(raw);
+  if (name === null || state.active === name) return;
   state.active = name;
   document.querySelectorAll(".tab").forEach((b) =>
     b.classList.toggle("active", b.dataset.tab === name)
@@ -425,10 +468,21 @@ $("#refresh-btn").addEventListener("click", async () => {
 
 $("#retry-btn").addEventListener("click", () => load(state.active));
 
-// 支持 #most-played 等 hash 深链直达指定榜单
-const h = location.hash.slice(1);
-const initial = API[h] ? h : "most-played";
 updateWatchChip();
-switchTab(initial);
-load(initial);
+// 支持 #most-played 等 hash 深链：命中白名单时模拟点击对应 tab，
+// 与用户点击走同一条 switchTab 入口；未命中/默认榜则直接加载默认榜
+const wanted = resolveTab(location.hash.slice(1));
+if (wanted && wanted !== "most-played") {
+  let matched = false;
+  for (const b of document.querySelectorAll(".tab")) {
+    if (b.dataset.tab === wanted) {
+      b.click();
+      matched = true;
+      break;
+    }
+  }
+  if (!matched) load("most-played");
+} else {
+  load("most-played");
+}
 updateTicker();
