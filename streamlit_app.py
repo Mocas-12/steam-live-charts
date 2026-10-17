@@ -30,19 +30,24 @@ CSS = """
 .block-container { padding: 0 1.25rem 2rem; max-width: 1100px; margin: 0 auto; }
 section[data-testid="stVerticalBlock"] { gap: .45rem; }
 
-/* 页面底色：深空 + 金火×电冰×深紫三色极光（AURORA GLASS） */
+/* 低饱和环境光为半透明玻璃提供层次，列表保持清晰。 */
 .stApp {
-  background: #101419;
+  background:
+    radial-gradient(ellipse 880px 600px at 4% 0%, rgba(122,159,207,.14), transparent 68%),
+    radial-gradient(ellipse 760px 550px at 96% 10%, rgba(211,184,125,.08), transparent 70%),
+    #101419;
+  background-attachment: fixed;
 }
 body, .stApp, p {
-  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
   color: #e8edf2;
 }
 
 :root {
   --gc-line: rgba(255,255,255,.08);
   --gc-line-hi: rgba(255,255,255,.18);
-  --gc-glass: #181f27;
+  --gc-glass: rgba(27,34,44,.56);
+  --gc-glass-edge: rgba(255,255,255,.13);
   --gc-text: #e8edf2;
   --gc-muted: #9aa3b8;
   --gc-dim: #8c99a8;
@@ -60,8 +65,11 @@ a { color: #e8edf2; }
 
 /* 顶栏 */
 .gc-nav {
-  background: transparent; margin: 0 0 4px; padding: 0;
-  border-bottom: 1px solid var(--gc-line); height: 58px; display: flex; align-items: center;
+  background: linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.015)), rgba(27,34,44,.56); margin: 16px 0 4px; padding: 0 18px;
+  border: 1px solid var(--gc-glass-edge); border-radius: 20px;
+  height: 60px; display: flex; align-items: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 28px rgba(0,0,0,.16);
+  backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
 }
 .gc-nav-inner { display: flex; align-items: center; gap: 24px; width: 100%; }
 .gc-logo { display: flex; align-items: center; gap: 10px; }
@@ -93,9 +101,9 @@ a { color: #e8edf2; }
 }
 @keyframes gc-pulse { 50% { opacity: .3; } }
 
-/* 刷新按钮（克制的描边胶囊） */
+/* 刷新按钮 */
 .stButton > button {
-  width: 36px; min-height: 36px; border-radius: 6px; padding: 4px;
+  width: 36px; min-height: 36px; border-radius: 12px; padding: 4px;
   background: rgba(255,255,255,.05); color: #e8eaf0;
   border: 1px solid var(--gc-line-hi);
   font-size: 12.5px; font-weight: 600; letter-spacing: .5px;
@@ -106,37 +114,53 @@ a { color: #e8edf2; }
 }
 .stButton > button p { font-size: 12.5px; font-weight: 600; letter-spacing: .5px; color: #e8eaf0 !important; }
 
-/* 榜单筛选框（每个 tab 一个，fragment 内输入不丢 tab 状态） */
-.stTextInput { max-width: 260px; margin-bottom: 2px; }
+/* 搜索框：只给外壳画边框，输入层透明，避免框架的双层方框。 */
+.stTextInput { max-width: 320px; margin: 4px 0 2px; }
+.stTextInput [data-testid="stTextInputRootElement"],
+.stTextInput [data-baseweb="input"] {
+  min-height: 44px; border: 1px solid var(--gc-glass-edge) !important;
+  border-radius: 22px !important; padding: 0 14px !important;
+  background: linear-gradient(140deg, rgba(255,255,255,.075), rgba(255,255,255,.025)), var(--gc-glass) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 16px rgba(0,0,0,.1) !important;
+  backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
+  transition: border-color .18s, box-shadow .18s;
+}
+.stTextInput [data-testid="stTextInputRootElement"]:hover,
+.stTextInput [data-baseweb="input"]:hover { border-color: rgba(255,255,255,.23) !important; }
+.stTextInput [data-testid="stTextInputRootElement"]:focus-within,
+.stTextInput [data-baseweb="input"]:focus-within {
+  border-color: rgba(231,191,105,.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 3px rgba(231,191,105,.1) !important;
+}
 .stTextInput input {
-  background: rgba(255,255,255,.04) !important;
-  border: 1px solid var(--gc-line) !important;
-  border-radius: 10px !important;
-  color: #e8eaf0 !important;
-  font-size: 13px;
+  background: transparent !important; border: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important; outline: none !important; color: #e8edf2 !important;
+  font-size: 14px; padding: 10px 8px !important;
 }
-.stTextInput input:focus {
-  border-color: rgba(125,215,255,.55) !important;
-}
-.stTextInput input::placeholder { color: #8c99a8 !important; }
+.stTextInput input::placeholder { color: #a0acba !important; opacity: 1; }
+.stTextInput [data-testid="stIconMaterial"] { color: #aebac9; font-size: 20px; }
 
 /* Tab（分段控件）——兼容旧版 baseweb 与新版 react-aria 两种 DOM */
 [data-baseweb="tab-list"], [role="tablist"] {
-  display: inline-flex; gap: 2px; border-bottom: none;
-  background: var(--gc-glass); border: 1px solid var(--gc-line);
-  border-radius: 13px; padding: 4px;
+  display: inline-flex; gap: 3px;
+  background: linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.015)), rgba(27,34,44,.56); border: 1px solid var(--gc-glass-edge);
+  border-radius: 18px; padding: 5px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 28px rgba(0,0,0,.16);
+  backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
 }
 [role="tab"] {
-  color: #a0acba; border-radius: 9px; padding: 9px 18px;
+  color: #a0acba; border-radius: 13px; padding: 9px 18px;
+  border: 1px solid transparent;
   font-weight: 600;
 }
 [role="tab"] p { font-size: 13.5px; font-weight: 600; color: #a0acba !important; }
 [role="tab"]:hover { background: rgba(255,255,255,.05); }
 [role="tab"]:hover p { color: #e8eaf0 !important; }
 [role="tab"][aria-selected="true"] {
-  background: linear-gradient(135deg, var(--gc-gold-2), var(--gc-gold));
+  background: linear-gradient(145deg, rgba(255,255,255,.18), rgba(255,255,255,.07)); border-color: rgba(255,255,255,.17);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 2px 6px rgba(0,0,0,.12);
 }
-[role="tab"][aria-selected="true"] p { color: #171204 !important; font-weight: 700; }
+[role="tab"][aria-selected="true"] p { color: #f3d99e !important; font-weight: 700; }
 [data-baseweb="tab-highlight"], .react-aria-SelectionIndicator { display: none !important; }
 
 /* 榜单面板 */
@@ -276,6 +300,10 @@ a { color: #e8edf2; }
 }
 
 @media (max-width: 860px) {
+  [data-testid="stHorizontalBlock"]:has(.gc-h1) { flex-wrap: nowrap !important; align-items: center; }
+  [data-testid="stHorizontalBlock"]:has(.gc-h1) > [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+  [data-testid="stHorizontalBlock"]:has(.gc-h1) > [data-testid="stColumn"]:last-child { flex: 0 0 40px !important; min-width: 40px !important; width: 40px !important; }
+
   .gc-thead { display: none; }
   .gc-row, .gc-row.simple { grid-template-columns: 28px 100px minmax(0,1fr) auto; gap: 11px; }
   .gc-row .gc-cover { width: 100px; }
@@ -331,12 +359,9 @@ a { color: #e8edf2; }
 .gc-row .gc-cover img[hidden] { display: none; }
 .gc-row > span:nth-child(3) { min-width: 0; }
 @media (max-width: 600px) {
-  [data-testid="stHorizontalBlock"]:has(.gc-h1) { flex-wrap: nowrap !important; align-items: center; }
-  [data-testid="stHorizontalBlock"]:has(.gc-h1) > [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
-  [data-testid="stHorizontalBlock"]:has(.gc-h1) > [data-testid="stColumn"]:last-child { flex: 0 0 40px !important; min-width: 40px !important; width: 40px !important; }
   .gc-overline { margin: 12px 0 6px; letter-spacing: 0; }
   .gc-briefing { padding: 8px 0; }
-  [role="tablist"] { flex-wrap: nowrap !important; overflow-x: auto !important; border-radius: 0 !important; }
+  [role="tablist"] { flex-wrap: nowrap !important; overflow-x: auto !important; border-radius: 18px !important; }
   [role="tab"] { flex-shrink: 0; }
   .gc-row, .gc-row.simple { grid-template-columns: 22px 76px minmax(0,1fr); gap: 4px 10px; padding: 12px 0; }
   .gc-row .rank { grid-column: 1; grid-row: 1 / span 2; }
@@ -359,7 +384,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--gc-gold); outli
 
 st.markdown(CSS, unsafe_allow_html=True)
 
-# 顶栏 + 跑马灯
+# 顶栏
 st.markdown(
     """
 <div class="gc-nav"><div class="gc-nav-inner">
@@ -657,7 +682,7 @@ tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk, tab_epic = st
 
 @st.fragment(run_every="60s")
 def render_most_played():
-    q = st.text_input("筛选", key="q_played", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_played", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     box = st.empty()
     items, err, meta = request_most_played()
@@ -694,42 +719,42 @@ def _board(fn, title, sub, query, stats=False, empty_html=EMPTY_HTML, ttl=120):
 
 @st.fragment(run_every="60s")
 def render_sellers():
-    q = st.text_input("筛选", key="q_sellers", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_sellers", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     _board(load_top_sellers, "热门畅销商品", "STEAM TOP SELLERS", q)
 
 
 @st.fragment(run_every="60s")
 def render_free_to_keep():
-    q = st.text_input("筛选", key="q_ftk", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_ftk", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     _board(load_free_to_keep, "限时免费入库", "FREE TO KEEP · 原价付费，现在免费领", q)
 
 
 @st.fragment(run_every="60s")
 def render_specials():
-    q = st.text_input("筛选", key="q_specials", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_specials", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     _board(load_specials, "特惠专区", "TOP 50 · HOT DEALS", q)
 
 
 @st.fragment(run_every="60s")
 def render_new():
-    q = st.text_input("筛选", key="q_new", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_new", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     _board(load_new_releases, "新品上架", "TOP 30 · NEW RELEASES", q, ttl=600)
 
 
 @st.fragment(run_every="60s")
 def render_free():
-    q = st.text_input("筛选", key="q_free", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_free", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     _board(load_free_games, "免费游戏", "TOP 50 · FREE TO PLAY", q)
 
 
 @st.fragment(run_every="60s")
 def render_epic():
-    q = st.text_input("筛选", key="q_epic", placeholder="🔍 筛选游戏名…",
+    q = st.text_input("搜索当前榜单", key="q_epic", placeholder="搜索当前榜单", icon=":material/search:",
                       label_visibility="collapsed").strip().lower()
     _board(load_epic_free, "Epic 喜加一", "FREE @ EPIC · 每周轮换，即将开始的也预告",
            q, empty_html=EMPTY_EPIC_HTML, ttl=600)
