@@ -1,6 +1,6 @@
 # 运行时依赖：锁定到当前通过全部测试的版本组合。
 # 跨版本可能改变行为（Streamlit 组件 DOM、FastAPI/httpx 语义），升级前先本地跑 python -m pytest tests/ -q。
 fastapi==0.141.1
-uvicorn==0.52.4
+uvicorn==0.54.0
 httpx==0.28.1
 streamlit==1.62.0
