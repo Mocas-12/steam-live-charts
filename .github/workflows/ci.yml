@@ -28,7 +28,10 @@ jobs:
           cache: pip
 
       - name: Install test dependencies
-        run: pip install pytest fastapi httpx
+        run: pip install pytest -r requirements.txt
 
       - name: Unit tests
         run: python -m pytest tests/ -q
+
+      - name: Frontend data freshness
+        run: node --test tests/test_frontend.cjs

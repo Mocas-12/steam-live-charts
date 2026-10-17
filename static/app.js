@@ -29,6 +29,9 @@ function resolveTab(raw) {
 const state = {
   active: "most-played",
   data: {},      // tab -> items
+  meta: {},      // tab -> original collection metadata
+  stale: {},     // last rendered freshness, for expiring alerts without a fetch
+  briefing: null,
   fetchedAt: {}, // tab -> Date.now()
   loading: {},   // tab -> bool
   nextRefresh: 60,
@@ -136,7 +139,7 @@ function nameColHtml(it) {
   const deal = watched && dealNow.has(it.appid);
   const star = `<span class="star${watched ? " on" : ""}${deal ? " deal" : ""}" data-appid="${it.appid}" `
     + `title="${watched ? "取消关注" : "关注"}">${watched ? "★" : "☆"}</span>`;
-  const surge = it.surge ? `<span class="surge">🔥 +${it.surge}%</span>` : "";
+  const surge = it.surge ? `<span class="surge" title="最近30分钟均值对比此前2小时均值；采样缺口超过5分钟时不显示">+${it.surge}%</span>` : "";
   return `<span class="nameline">${star}<span class="gname">${esc(it.name)}</span>${surge}</span>`;
 }
 
@@ -147,8 +150,7 @@ function rowHtml(it, stats) {
     const sub = meta ? `<span class="genre-line">${esc(meta)}</span>` : "";
     return `<a class="row simple" href="${esc(it.url)}" target="_blank" rel="noopener">
       <span class="rank">${it.rank}</span>
-      <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
-           onerror="this.style.visibility='hidden'">
+      <span class="cover" aria-hidden="true"><img src="${esc(it.image)}" alt="" loading="lazy" onerror="this.hidden=true"></span>
       <span class="gcol">${nameColHtml(it)}${sub}</span>
       <span class="price-col">${priceRowHtml(it.price)}</span>
     </a>`;
@@ -156,13 +158,12 @@ function rowHtml(it, stats) {
   const genres = it.genres && it.genres.length ? esc(it.genres.join(" / ")) : "";
   return `<a class="row" href="${esc(it.url)}" target="_blank" rel="noopener">
     <span class="rank">${it.rank}</span>
-    <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy"
-         onerror="this.style.visibility='hidden'">
+    <span class="cover" aria-hidden="true"><img src="${esc(it.image)}" alt="" loading="lazy" onerror="this.hidden=true"></span>
     <span class="gcol">
       ${nameColHtml(it)}
       ${genres ? `<span class="genre-line">${genres}</span>` : ""}
     </span>
-    <span class="pnum">${fmt(it.players)}</span>
+    <span class="pnum" data-label="在线">${fmt(it.players)}</span>
     <span class="peak-col peak-num">${fmt(it.peak)}</span>
     <span class="delta-col">${deltaHtml(it)}</span>
     <span class="spark-col">${sparkSvg(it.spark)}</span>
@@ -172,8 +173,8 @@ function rowHtml(it, stats) {
 function rowsHeadHtml(stats) {
   if (stats) {
     return ('<div class="rows-head"><span class="ctr">排名</span><span>游戏</span>'
-      + '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-      + '<span class="ctr">周变化</span><span class="ctr">趋势</span></div>');
+      + '<span></span><span class="r">当前在线</span><span class="r">官方峰值</span>'
+      + '<span class="ctr" title="上周官方排名减去当前实时排名；在线人数未知时不计算">较上周排名</span><span class="ctr">趋势</span></div>');
   }
   return ('<div class="rows-head simple"><span class="ctr">排名</span><span>游戏</span>'
     + '<span></span><span class="r">价格</span></div>');
@@ -215,7 +216,9 @@ function applyFilter(items) {
 }
 
 function render(tab) {
-  const items = state.data[tab];
+  const raw = state.data[tab];
+  const items = raw && (isDataStale(state.meta[tab])
+    ? raw.map(it => ({ ...it, surge: null, spark: [] })) : raw);
   const listEl = $(`#list-${tab}`);
   if (!items) {
     listEl.innerHTML = skeletonHtml();
@@ -262,34 +265,56 @@ function pulseChanged(tab, listEl) {
 
 async function loadBriefing() {
   try {
-    const b = await (await fetch("/api/briefing", { cache: "no-store" })).json();
-    const el = $("#briefing");
-    if (!el) return;
-    const parts = [];
-    if (b.total_online) parts.push(`此刻 <b>${fmt(b.total_online)}</b> 人在线`);
-    (b.surges || []).forEach(s =>
-      parts.push(`🔥 <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a> 在线 <b>+${s.pct}%</b>`));
-    if (b.new_entries) parts.push(`<b>${b.new_entries}</b> 款新上榜`);
-    if (b.ftk_count) {
-      parts.push(`🎁 限时免费进行中（${esc(b.ftk_names.join("、"))}${b.ftk_count > 3 ? " 等" : ""}）`);
-    }
-    if (!parts.length) parts.push("数据同步中…");
-    el.innerHTML = parts.map(p => `<span class="bi">${p}</span>`).join("");
-    el.hidden = false;
-  } catch (e) { /* 保留占位 */ }
+    const response = await fetch("/api/briefing", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    state.briefing = await response.json();
+  } catch (e) { /* Keep the last snapshot and its original collection time. */ }
+  renderBriefing();
 }
 
-function updateMeta(data) {
-  if (!data || !data.meta) return;
-  if (data.meta.cached_built_at) {
-    const b = new Date(data.meta.cached_built_at * 1000);
-    $("#updated-at").textContent =
-      `缓存数据 ${b.toLocaleTimeString("zh-CN", { hour12: false })} · 后台刷新中`;
-  } else {
-    const t = new Date(data.meta.updated_at * 1000);
-    $("#updated-at").textContent = `更新于 ${t.toLocaleTimeString("zh-CN", { hour12: false })}`;
+function renderBriefing() {
+  const b = state.briefing;
+  const el = $("#briefing");
+  if (!b || !el) return;
+  const parts = [];
+  if (b.games_with_players) parts.push(`榜单 Top ${b.games_total} 在线合计 <b>${fmt(b.total_online)}</b>`);
+  if (b.games_with_players < b.games_total) parts.push(`人数覆盖 ${b.games_with_players}/${b.games_total} 款`);
+  if (state.active !== "most-played") parts.push(esc(metaText(b.meta)));
+  if (b.ftk_count === null) parts.push("限免状态暂不可用");
+  (isDataStale(b.meta) ? [] : b.surges || []).forEach(s =>
+    parts.push(`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a> 近30分钟 <b>+${s.pct}%</b>`));
+  if (b.new_entries) parts.push(`<b>${b.new_entries}</b> 款新上榜`);
+  if (b.ftk_count && !isDataStale(b.free_to_keep_meta)) {
+    parts.push(`限时免费进行中（${esc(b.ftk_names.join("、"))}${b.ftk_count > 3 ? " 等" : ""}）`);
   }
-  state.nextRefresh = data.meta.ttl || 60;
+  el.innerHTML = parts.map(p => `<span class="bi">${p}</span>`).join("");
+  el.hidden = false;
+}
+
+function isDataStale(meta) {
+  return !meta || meta.stale || Date.now() / 1000 - meta.updated_at > meta.ttl;
+}
+
+function metaText(meta) {
+  if (!meta) return "尚未取得数据";
+  const stale = isDataStale(meta);
+  const status = meta.refresh_failed ? "刷新失败，显示历史数据" : stale ? "历史缓存" : "已采集";
+  const stamp = new Date(meta.updated_at * 1000).toLocaleString("zh-CN", {
+    timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
+  return `${status} · ${stamp} UTC+8`;
+}
+
+function updateMeta() {
+  const meta = state.meta[state.active];
+  $("#updated-at").textContent = metaText(meta);
+  const stale = isDataStale(meta);
+  if (state.stale[state.active] !== stale) {
+    state.stale[state.active] = stale;
+    if (state.data[state.active]) render(state.active);
+  }
+  $("#live-dot").style.background = stale ? "var(--gold)" : "var(--up)";
 }
 
 /* ---------- 数据加载 ---------- */
@@ -322,8 +347,12 @@ async function load(rawTab, { silent = false, force = false } = {}) {
     state.data[tab] = data.items;
     state.fetchedAt[tab] = Date.now();
     updateDeals(data.items); // 关注游戏降价检测
-    updateMeta(data);
-    $("#error-banner").hidden = true;
+    state.meta[tab] = data.meta;
+    if (tab === state.active) {
+      updateMeta();
+      state.nextRefresh = 60;
+    }
+    if (tab === state.active) $("#error-banner").hidden = true;
     if (tab === state.active) render(tab);
   } catch (e) {
     if (tab === state.active) {
@@ -333,66 +362,12 @@ async function load(rawTab, { silent = false, force = false } = {}) {
     }
   } finally {
     state.loading[tab] = false;
-    $("#live-dot").style.background = "var(--up)";
+    updateMeta();
   }
 }
 
 function isStale(tab) {
   return !state.fetchedAt[tab] || Date.now() - state.fetchedAt[tab] > 60_000;
-}
-
-/* ---------- 跑马灯资讯条 ---------- */
-
-let tickerBusy = false;
-
-async function updateTicker() {
-  if (tickerBusy) return;
-  tickerBusy = true;
-  try {
-    const [ts, mp] = await Promise.all([
-      fetch(API["top-sellers"], { cache: "no-store" }).then(r => r.json()),
-      fetch(API["most-played"], { cache: "no-store" }).then(r => r.json()),
-    ]);
-    const parts = [];
-    const total = (mp.items || []).reduce((a, i) => a + (i.players || 0), 0);
-    if (total) parts.push(`TOP100 总在线 ${total.toLocaleString("en-US")} 人`);
-    (ts.items || []).slice(0, 3).forEach(i =>
-      parts.push(`热销 #${i.rank} ${i.name} ${i.price?.final ?? ""}`));
-    (mp.items || []).slice(0, 3).forEach(i =>
-      parts.push(`最热 #${i.rank} ${i.name} ${fmt(i.players)} 人在线`));
-    const seq = parts.map(p => `<span class="ti"><b>▮</b>${esc(p)}</span>`).join("");
-    const track = $("#ticker-track");
-    if (track) track.innerHTML = seq + seq; // 两份内容首尾相接实现无缝循环
-    renderRails(mp);
-  } catch (e) { /* 静默 */ } finally {
-    tickerBusy = false;
-  }
-  loadBriefing(); // 速览条跟随同一节奏更新
-}
-
-/* ---------- 侧边实时数据卡 ---------- */
-
-function renderRails(mp) {
-  const left = $("#rail-left");
-  const right = $("#rail-right");
-  if (!left || !right) return;
-  const items = mp.items || [];
-  const total = items.reduce((a, i) => a + (i.players || 0), 0);
-  const medals = ["var(--gold)", "#d7e0f0", "#e89a6b"];
-  left.innerHTML = '<div class="rail-title">▍此刻在线 TOP 3</div>' + items.slice(0, 3).map((i, idx) =>
-    `<a class="rrow" href="${esc(i.url)}" target="_blank" rel="noopener">
-       <span class="rnum" style="color:${medals[idx]}">${i.rank}</span>
-       <img src="${esc(i.image)}" loading="lazy">
-       <span class="rmeta">
-         <span class="rname">${esc(i.name)}</span>
-         <span class="rplayers">${fmt(i.players)} 人在线</span>
-       </span>
-     </a>`).join("");
-  const t = new Date(mp.meta.updated_at * 1000).toLocaleTimeString("zh-CN", { hour12: false });
-  right.innerHTML = '<div class="rail-title">▍REALTIME STATS</div>'
-    + `<div class="stat"><div class="big">${fmt(total)}</div><div class="lbl">TOP100 总在线人数</div></div>`
-    + `<div class="stat"><div class="big">${items.length}</div><div class="lbl">监控游戏数</div></div>`
-    + `<div class="stat"><div class="big">${t}</div><div class="lbl">数据更新时间</div></div>`;
 }
 
 function switchTab(raw) {
@@ -406,17 +381,20 @@ function switchTab(raw) {
     (p.hidden = p.id !== `panel-${name}`)
   );
   render(name);
+  updateMeta();
   if (isStale(name)) load(name);
 }
 
 /* ---------- 定时刷新 ---------- */
 
 setInterval(() => {
+  updateMeta();
+  renderBriefing();
   state.nextRefresh -= 1;
   if (state.nextRefresh <= 0) {
     state.nextRefresh = 60;
     load(state.active, { silent: true });
-    updateTicker();
+    loadBriefing();
   }
   $("#countdown").textContent = `${state.nextRefresh}s 后自动刷新`;
 }, 1000);
@@ -459,7 +437,7 @@ $("#refresh-btn").addEventListener("click", async () => {
   state.nextRefresh = 60;
   await Promise.allSettled([
     load(state.active, { silent: true, force: true }),
-    updateTicker(),
+    loadBriefing(),
   ]);
   if (label) label.textContent = old; else btn.textContent = old;
   btn.disabled = false;
@@ -485,4 +463,4 @@ if (wanted && wanted !== "most-played") {
 } else {
   load("most-played");
 }
-updateTicker();
+loadBriefing();

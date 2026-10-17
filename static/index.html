@@ -12,12 +12,6 @@
 </head>
 <body>
 
-<div class="ticker">
-  <div class="ticker-track" id="ticker-track">
-    <span class="ti"><b>▮</b>LIVE 数据加载中…</span>
-  </div>
-</div>
-
 <nav class="topnav">
   <div class="wrap topnav-inner">
     <a class="logo" href="/">
@@ -31,16 +25,13 @@
       <a href="https://store.steampowered.com/charts/" target="_blank">官方榜单</a>
       <a href="https://help.steampowered.com/" target="_blank">客服</a>
     </div>
-    <a class="install-btn" href="https://store.steampowered.com/about/" target="_blank"><span>安装 STEAM</span></a>
+
   </div>
 </nav>
 
-<div class="rail left" id="rail-left"><div class="rail-title">▍此刻在线 TOP 3</div><div class="rail-loading">加载中…</div></div>
-<div class="rail right" id="rail-right"><div class="rail-title">▍REALTIME STATS</div><div class="rail-loading">加载中…</div></div>
-
 <header class="page-head">
   <div class="wrap">
-    <div class="overline">Realtime Arena · 每 60 秒自动刷新</div>
+    <div class="overline">Steam 游戏数据 · 每 60 秒检查更新</div>
     <div class="head-top">
       <h1>Steam 实时游戏<em>榜单</em></h1>
       <div class="head-meta">
@@ -64,7 +55,7 @@
       <div class="toolbar-right">
         <button id="watch-chip" class="watch-chip" hidden>★ 我的关注 <span id="watch-count"></span></button>
         <input id="filter" class="filter-input" type="search"
-               placeholder="筛选游戏名…" autocomplete="off" spellcheck="false">
+               aria-label="筛选游戏名" placeholder="筛选游戏名…" autocomplete="off" spellcheck="false">
       </div>
     </div>
     <div class="briefing" id="briefing" hidden><span class="bi">数据同步中…</span></div>
@@ -80,10 +71,11 @@
   <section class="panel" id="panel-most-played">
     <div class="section-title">最热游玩游戏 <span class="section-sub">TOP 100 · BY CURRENT PLAYERS</span></div>
     <div class="rows" id="list-most-played"></div>
+    <details class="method-note"><summary>数据口径与缺失说明</summary>候选游戏来自 Steam 官方榜单，按已取得的实时在线人数排序。未知人数显示 — 并置后；周变化对比上周官方排名。官方峰值与当前在线的采集时点不同。异动比较最近30分钟与此前2小时的均值，样本覆盖不足或存在超过5分钟的缺口时不显示。</details>
   </section>
 
   <section class="panel" id="panel-top-sellers" hidden>
-    <div class="section-title">热门畅销商品 <span class="section-sub">TOP 50 · BY UNITS SOLD</span></div>
+    <div class="section-title">热门畅销商品 <span class="section-sub">TOP 50 · STEAM TOP SELLERS</span></div>
     <div class="rows" id="list-top-sellers"></div>
   </section>
 

@@ -67,7 +67,10 @@ def build_snapshot(mp_items=None):
 
 def write_seeds(mp_items):
     """完整榜单 + 详情缓存写为仓库种子：部署冷启动零等待的底气。"""
-    sd._dump_json(sd.LAST_MP_SEED, {"built_at": time.time(), "items": mp_items})
+    live = sd._load_json(sd.LAST_MP_LIVE)
+    if not live or live.get("items") != mp_items:
+        raise RuntimeError("找不到对应的采集时间，不能给种子标注新的更新时间")
+    sd._dump_json(sd.LAST_MP_SEED, {"built_at": live["built_at"], "items": mp_items})
     sd.write_detail_seed()
 
 

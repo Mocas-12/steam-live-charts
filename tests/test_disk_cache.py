@@ -87,14 +87,14 @@ class TestCachedMostPlayed:
         self._write(steamdata.LAST_MP_LIVE, now - 60)
         self._write(steamdata.LAST_MP_SEED, now - 3600)
         items, built_at = steamdata.load_cached_most_played()
-        assert items == [{"appid": 1, "rank": 1}]
+        assert len(items) == 1 and items[0]["appid"] == 1 and items[0]["rank"] == 1
         assert built_at == pytest.approx(now - 60, abs=5)
 
     def test_seed_fallback(self, cache_paths):
         now = time.time()
         self._write(steamdata.LAST_MP_SEED, now - 3600)
         items, _ = steamdata.load_cached_most_played()
-        assert items == [{"appid": 1, "rank": 1}]
+        assert len(items) == 1 and items[0]["appid"] == 1 and items[0]["rank"] == 1
 
     def test_expired_returns_none(self, cache_paths):
         self._write(steamdata.LAST_MP_LIVE, time.time() - 27 * 3600)  # 超过 26h 上限

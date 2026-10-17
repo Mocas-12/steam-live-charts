@@ -1,4 +1,4 @@
-"""Steam 实时游戏榜单 —— Streamlit Cloud 入口（Cinematic 电影感暗色主题）。
+"""Steam 实时游戏榜单 —— Streamlit Cloud 入口（深色数据主题）。
 
 与本地 FastAPI 版（app.py + static/）共用数据层 steamdata.py；
 st.cache_data 控制上游请求频率，st.fragment(run_every=60s) 让榜单原地自动刷新。
@@ -7,7 +7,6 @@ st.cache_data 控制上游请求频率，st.fragment(run_every=60s) 让榜单原
 import html as htmllib
 import threading
 import time
-from datetime import datetime, timezone, timedelta
 
 import streamlit as st
 
@@ -20,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ---------- CINEMATIC 主题 ----------
+# ---------- 深色数据主题 ----------
 
 CSS = """
 <style>
@@ -33,25 +32,21 @@ section[data-testid="stVerticalBlock"] { gap: .45rem; }
 
 /* 页面底色：深空 + 金火×电冰×深紫三色极光（AURORA GLASS） */
 .stApp {
-  background:
-    radial-gradient(1100px 640px at 88% -12%, rgba(125,215,255,.16), transparent 62%),
-    radial-gradient(950px 700px at -12% 18%, rgba(240,199,94,.13), transparent 58%),
-    radial-gradient(900px 620px at 50% 115%, rgba(122,92,255,.10), transparent 62%),
-    #06070b fixed;
+  background: #101419;
 }
 body, .stApp, p {
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  color: #eef0f6;
+  color: #e8edf2;
 }
 
 :root {
   --gc-line: rgba(255,255,255,.08);
   --gc-line-hi: rgba(255,255,255,.18);
-  --gc-glass: rgba(15,18,28,.55);
-  --gc-text: #eef0f6;
+  --gc-glass: #181f27;
+  --gc-text: #e8edf2;
   --gc-muted: #9aa3b8;
-  --gc-dim: #667089;
-  --gc-gold: #f0c75e;
+  --gc-dim: #8c99a8;
+  --gc-gold: #e7bf69;
   --gc-gold-2: #ffdf8e;
   --gc-ice: #7dd7ff;
   --gc-up: #6fdc8c;
@@ -60,53 +55,19 @@ body, .stApp, p {
   --gc-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
-/* 胶片颗粒噪点覆盖 */
-.stApp::after {
-  content: ""; position: fixed; inset: 0; z-index: 99; pointer-events: none; opacity: .05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
-}
-
-a { color: #eef0f6; }
+a { color: #e8edf2; }
 .stMarkdown a, .stMarkdown a * { text-decoration: none !important; }
-
-/* 跑马灯资讯条 */
-.gc-ticker {
-  background: rgba(255,255,255,.03); border-bottom: 1px solid var(--gc-line);
-  color: #98a0b3;
-  overflow: hidden; height: 32px; display: flex; align-items: center;
-  margin: 0 -1.25rem;
-}
-.gc-ticker-track {
-  display: inline-flex; white-space: nowrap; align-items: center;
-  animation: gc-tick 40s linear infinite; will-change: transform;
-}
-.gc-ticker:hover .gc-ticker-track { animation-play-state: paused; }
-@keyframes gc-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.gc-ticker .ti {
-  color: #98a0b3 !important;
-  font-family: var(--gc-mono); font-size: 11.5px; letter-spacing: .5px;
-  padding: 0 20px;
-}
-.gc-ticker .ti b { color: var(--gc-gold) !important; margin-right: 8px; font-weight: 700; }
-.gc-ticker .ti strong { color: #e8eaf0 !important; font-weight: 600; }
 
 /* 顶栏 */
 .gc-nav {
-  background: var(--gc-glass); margin: 12px 0 4px;
-  padding: 0 max(1.25rem, calc((100% - 1100px)/2));
-  border: 1px solid var(--gc-line);
-  border-radius: 16px;
-  height: 58px; display: flex; align-items: center;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 12px 40px rgba(0,0,0,.45);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  background: transparent; margin: 0 0 4px; padding: 0;
+  border-bottom: 1px solid var(--gc-line); height: 58px; display: flex; align-items: center;
 }
 .gc-nav-inner { display: flex; align-items: center; gap: 24px; width: 100%; }
 .gc-logo { display: flex; align-items: center; gap: 10px; }
 .gc-logo-mark {
   width: 12px; height: 12px; border-radius: 4px;
   background: linear-gradient(135deg, var(--gc-gold-2), var(--gc-gold));
-  box-shadow: 0 0 14px rgba(240,199,94,.55);
 }
 .gc-logo-word { font-size: 16px; font-weight: 800; letter-spacing: .5px; color: #fff !important; }
 .gc-logo-word span { color: var(--gc-gold) !important; }
@@ -114,88 +75,27 @@ a { color: #eef0f6; }
   font-family: var(--gc-mono); font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
   color: var(--gc-ice) !important; border: 1px solid rgba(125,215,255,.35); padding: 3px 9px;
   border-radius: 99px;
-  box-shadow: inset 0 0 12px rgba(125,215,255,.08);
 }
 .gc-nav .spacer { margin-right: auto; }
-.gc-nav a { color: #98a0b3; text-decoration: none; font-size: 13px; font-weight: 500; padding: 7px 12px; border-radius: 8px; }
+.gc-nav a { color: #a0acba; text-decoration: none; font-size: 13px; font-weight: 500; padding: 7px 12px; border-radius: 8px; }
 .gc-nav a:hover { color: #e8eaf0; background: rgba(255,255,255,.05); }
-.gc-install {
-  color: #171204 !important; font-size: 13px; font-weight: 600;
-  padding: 8px 16px; border-radius: 11px;
-  background: linear-gradient(135deg, var(--gc-gold-2), var(--gc-gold));
-  border: none;
-  box-shadow: 0 4px 18px rgba(240,199,94,.3);
-}
-.gc-install span { color: #171204 !important; }
-.gc-install:hover { filter: brightness(1.08); box-shadow: 0 6px 24px rgba(240,199,94,.45); }
-
-/* 侧边实时数据卡 */
-.gc-rail {
-  position: fixed; top: 86px; z-index: 5; width: 176px;
-  background: var(--gc-glass);
-  border: 1px solid var(--gc-line);
-  border-radius: 16px; padding: 14px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 12px 40px rgba(0,0,0,.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  user-select: none;
-}
-.gc-rail.left { left: calc(50% - 550px - 192px); }
-.gc-rail.right { right: calc(50% - 550px - 192px); }
-@media (max-width: 1460px) { .gc-rail { display: none; } }
-
-.gc-rail .rail-title {
-  font-family: var(--gc-mono); font-size: 10px; font-weight: 700; letter-spacing: 2px;
-  color: #6b7285 !important; text-transform: uppercase; margin-bottom: 8px;
-}
-.gc-rail .rail-loading { font-family: var(--gc-mono); font-size: 11px; color: #6b7285; }
-
-.gc-rail .rrow {
-  display: flex; align-items: center; gap: 8px; padding: 7px 0;
-  text-decoration: none !important; border-top: 1px solid rgba(255,255,255,.04);
-}
-.gc-rail .rrow:first-of-type { border-top: none; }
-.gc-rail .rrow .rnum {
-  font-family: var(--gc-mono); font-size: 12px; font-weight: 800; width: 22px; flex: none;
-}
-.gc-rail .rrow img { width: 52px; height: 24px; object-fit: cover; border-radius: 4px; flex: none; }
-.gc-rail .rrow .rmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.gc-rail .rrow .rname {
-  font-size: 11px; color: #e8eaf0 !important;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.gc-rail .rrow .rplayers {
-  font-family: var(--gc-mono); font-size: 10px; color: #98a0b3 !important;
-}
-.gc-rail .rrow:hover .rname { color: var(--gc-gold) !important; }
-
-.gc-rail .stat { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.04); }
-.gc-rail .stat:first-of-type { border-top: none; padding-top: 2px; }
-.gc-rail .stat .big {
-  font-family: var(--gc-mono); font-size: 21px; font-weight: 800; color: #fff !important;
-  font-variant-numeric: tabular-nums; line-height: 1.2;
-}
-.gc-rail .stat .lbl { font-size: 10.5px; color: #6b7285 !important; margin-top: 2px; }
-
 /* 标题区 */
 .gc-overline {
-  font-family: var(--gc-mono); font-size: 11px; letter-spacing: 3px;
-  color: #6b7285 !important; text-transform: uppercase; margin: 20px 0 8px;
+  font-family: var(--gc-mono); font-size: 11px; letter-spacing: .2px;
+  color: #8c99a8 !important; text-transform: none; margin: 20px 0 8px;
 }
 .gc-h1 {
-  font-size: clamp(30px, 4.5vw, 42px); font-weight: 900; letter-spacing: -.5px;
+  font-size: clamp(26px, 3vw, 32px); font-weight: 700; letter-spacing: -.5px;
   line-height: 1.08; color: #fff !important;
 }
 .gc-h1 em {
-  font-style: normal;
-  background: linear-gradient(120deg, var(--gc-gold-2) 10%, var(--gc-gold) 55%, #d99a2b 95%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-style: normal; color: inherit;
 }
 @keyframes gc-pulse { 50% { opacity: .3; } }
 
 /* 刷新按钮（克制的描边胶囊） */
 .stButton > button {
-  width: 100%; border-radius: 10px; padding: 10px 0;
+  width: 36px; min-height: 36px; border-radius: 6px; padding: 4px;
   background: rgba(255,255,255,.05); color: #e8eaf0;
   border: 1px solid var(--gc-line-hi);
   font-size: 12.5px; font-weight: 600; letter-spacing: .5px;
@@ -217,47 +117,39 @@ a { color: #eef0f6; }
 }
 .stTextInput input:focus {
   border-color: rgba(125,215,255,.55) !important;
-  box-shadow: 0 0 0 3px rgba(125,215,255,.12) !important;
 }
-.stTextInput input::placeholder { color: #6b7285 !important; }
+.stTextInput input::placeholder { color: #8c99a8 !important; }
 
 /* Tab（分段控件）——兼容旧版 baseweb 与新版 react-aria 两种 DOM */
 [data-baseweb="tab-list"], [role="tablist"] {
   display: inline-flex; gap: 2px; border-bottom: none;
   background: var(--gc-glass); border: 1px solid var(--gc-line);
   border-radius: 13px; padding: 4px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
 }
 [role="tab"] {
-  color: #98a0b3; border-radius: 9px; padding: 9px 18px;
+  color: #a0acba; border-radius: 9px; padding: 9px 18px;
   font-weight: 600;
 }
-[role="tab"] p { font-size: 13.5px; font-weight: 600; color: #98a0b3 !important; }
+[role="tab"] p { font-size: 13.5px; font-weight: 600; color: #a0acba !important; }
 [role="tab"]:hover { background: rgba(255,255,255,.05); }
 [role="tab"]:hover p { color: #e8eaf0 !important; }
 [role="tab"][aria-selected="true"] {
   background: linear-gradient(135deg, var(--gc-gold-2), var(--gc-gold));
-  box-shadow: 0 4px 18px rgba(240,199,94,.32);
 }
 [role="tab"][aria-selected="true"] p { color: #171204 !important; font-weight: 700; }
 [data-baseweb="tab-highlight"], .react-aria-SelectionIndicator { display: none !important; }
 
 /* 榜单面板 */
-.gc-panel { margin-top: 16px; }
+.gc-panel { margin-top: 8px; }
 
 .gc-section {
-  color: #fff; font-size: 22px; font-weight: 800; letter-spacing: .2px;
+  color: #fff; font-size: 18px; font-weight: 650; letter-spacing: 0;
   padding: 8px 0 16px; display: flex; align-items: baseline; gap: 12px;
 }
 .gc-section::before {
-  content: ""; width: 6px; height: 22px; align-self: center;
-  background: linear-gradient(180deg, var(--gc-gold-2), var(--gc-gold));
-  border-radius: 3px;
-  box-shadow: 0 0 12px rgba(240,199,94,.4);
+  display: none;
 }
-.gc-section .sub { color: #6b7285 !important; font-size: 11.5px; font-family: var(--gc-mono); letter-spacing: 1.5px; font-weight: 400; }
+.gc-section .sub { color: #8c99a8 !important; font-size: 11.5px; font-family: var(--gc-mono); letter-spacing: 1.5px; font-weight: 400; }
 
 /* 折扣标签 */
 .gc-tag {
@@ -274,62 +166,27 @@ a { color: #eef0f6; }
 }
 .gc-price { color: #e8eaf0 !important; font-size: 13px; font-family: var(--gc-mono); font-weight: 600; }
 .gc-price.free { color: var(--gc-up) !important; }
-.gc-strike { color: #6b7285 !important; text-decoration: line-through; font-size: 12px; font-family: var(--gc-mono); }
+.gc-strike { color: #8c99a8 !important; text-decoration: line-through; font-size: 12px; font-family: var(--gc-mono); }
 
 /* 最热游玩行（无价格列） */
 .gc-thead, .gc-row {
-  display: grid;
-  grid-template-columns: 64px 156px minmax(0,1fr) 105px 105px 64px;
-  gap: 16px; align-items: center; padding: 8px 6px;
+  display: grid; grid-template-columns: 44px 120px minmax(0,1fr) 105px 105px 90px;
+  gap: 12px; align-items: center; padding: 10px 6px;
 }
 .gc-thead {
-  color: #6b7285 !important; font-size: 11px; font-weight: 600; letter-spacing: 2px;
-  font-family: var(--gc-mono); text-transform: uppercase;
+  color: #8c99a8 !important; font-size: 11px; font-weight: 600; letter-spacing: 2px;
+  font-family: var(--gc-mono); text-transform: none;
   border-bottom: 1px solid var(--gc-line); padding-bottom: 10px; margin-bottom: 4px;
 }
 .gc-thead .r { text-align: right; }
 .gc-thead .ctr { text-align: center; }
 .gc-row {
-  position: relative; overflow: hidden;
-  border-radius: 13px; text-decoration: none !important;
-  background: linear-gradient(90deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
-  border: 1px solid transparent;
-  transition: background .18s, border-color .18s, transform .18s;
+  min-height: 76px; text-decoration: none !important;
+  border-bottom: 1px solid var(--gc-line);
+  transition: background .15s;
 }
 .gc-row:hover {
-  background: rgba(255,255,255,.05);
-  border-color: var(--gc-line);
-  transform: translateY(-1px);
-}
-.gc-row::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,.06) 50%, transparent 58%);
-  transform: translateX(-130%);
-  transition: transform .7s ease;
-}
-.gc-row:hover::after { transform: translateX(130%); }
-.gc-row .rank {
-  font-family: var(--gc-mono); font-size: 20px; font-weight: 800;
-  color: #323a4e !important; text-align: center;
-  transition: color .18s;
-}
-.gc-row:nth-of-type(1) .rank, .gc-row:nth-of-type(2) .rank, .gc-row:nth-of-type(3) .rank { font-size: 22px; }
-.gc-row:nth-of-type(1) .rank {
-  background: linear-gradient(155deg, #ffeaa8 5%, var(--gc-gold) 50%, #c98f1e 95%);
-  -webkit-background-clip: text; background-clip: text; color: transparent !important;
-  filter: drop-shadow(0 0 10px rgba(240,199,94,.35));
-}
-.gc-row:nth-of-type(2) .rank {
-  background: linear-gradient(155deg, #f6f9ff 5%, #cdd8ec 50%, #9fb0d0 95%);
-  -webkit-background-clip: text; background-clip: text; color: transparent !important;
-}
-.gc-row:nth-of-type(3) .rank {
-  background: linear-gradient(155deg, #ffd4b0 5%, #eda06f 50%, #b06535 95%);
-  -webkit-background-clip: text; background-clip: text; color: transparent !important;
-}
-.gc-row img {
-  width: 156px; aspect-ratio: 460/215; object-fit: cover; border-radius: 9px; display: block;
-  border: 1px solid var(--gc-line);
+  background: rgba(255,255,255,.035);
 }
 .gc-row .gname { color: #fff !important; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
 .gc-row:hover .gname { color: var(--gc-gold) !important; }
@@ -340,40 +197,34 @@ a { color: #eef0f6; }
   border: 1px solid rgba(255,122,74,.4);
   padding: 1px 8px; border-radius: 99px; margin-left: 8px;
   display: inline-block; vertical-align: 1px;
-  animation: gc-surge-pulse 2.2s ease-in-out infinite;
+
 }
 @keyframes gc-surge-pulse { 50% { opacity: .65; } }
-.gc-row img { transition: transform .25s ease; }
-.gc-row:hover img { transform: scale(1.03); }
+
 
 /* 今日速览条 */
 .gc-briefing {
-  background: linear-gradient(90deg, rgba(240,199,94,.07), rgba(125,215,255,.05) 60%, rgba(255,255,255,.03));
-  border: 1px solid rgba(240,199,94,.2);
-  border-radius: 16px; padding: 11px 18px; margin: 2px 0 10px;
-  font-size: 13px; color: #9aa3b8 !important;
-  display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  padding: 10px 0; margin: 8px 0 4px; border-top: 1px solid var(--gc-line);
+  font-size: 12px; color: #a0acba !important;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0;
 }
 .gc-briefing .bi { display: inline-flex; align-items: center; }
-.gc-briefing .bi + .bi::before { content: "·"; margin: 0 12px; color: #6b7285 !important; }
+.gc-briefing .bi + .bi::before { content: "·"; margin: 0 12px; color: #8c99a8 !important; }
 .gc-briefing b, .gc-briefing strong { color: var(--gc-gold) !important; font-family: var(--gc-mono); font-weight: 700; }
-.gc-row .genre { color: #98a0b3 !important; font-size: 11.5px; margin-top: 3px; }
+.gc-row .genre { color: #a0acba !important; font-size: 11.5px; margin-top: 3px; }
 .gc-row .genre .p { color: #e8eaf0 !important; margin-left: 8px; font-family: var(--gc-mono); font-weight: 600; }
 .gc-row .pnum {
   color: #fff !important; font-size: 17px; font-weight: 700; text-align: right;
   font-family: var(--gc-mono); font-variant-numeric: tabular-nums;
 }
 .gc-row .peak {
-  color: #98a0b3 !important; font-size: 13px; text-align: right;
+  color: #a0acba !important; font-size: 13px; text-align: right;
   font-family: var(--gc-mono); font-variant-numeric: tabular-nums;
 }
 .gc-row .delta { text-align: center; font-size: 12.5px; font-weight: 700; font-family: var(--gc-mono); }
 .gc-row .delta.up { color: var(--gc-up) !important; }
 .gc-row .delta.down { color: var(--gc-down) !important; }
-.gc-row .delta.same { color: #6b7285 !important; font-weight: 400; }
+.gc-row .delta.same { color: #8c99a8 !important; font-weight: 400; }
 .gc-row .delta .new {
   display: inline-block; background: rgba(232,194,104,.12);
   border: 1px solid rgba(232,194,104,.45); color: var(--gc-gold) !important;
@@ -381,9 +232,9 @@ a { color: #eef0f6; }
 }
 
 /* 价格类榜单的横排（带价格列） */
-.gc-thead.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
+.gc-thead.simple { grid-template-columns: 44px 120px minmax(0,1fr) 200px; }
 .gc-thead.simple .r { text-align: right; }
-.gc-row.simple { grid-template-columns: 64px 156px minmax(0,1fr) 240px; }
+.gc-row.simple { grid-template-columns: 44px 120px minmax(0,1fr) 200px; }
 .gc-row .price-col {
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
 }
@@ -395,7 +246,7 @@ a { color: #eef0f6; }
   font-family: var(--gc-mono); font-size: 38px; font-weight: 800; color: #262b36; line-height: 1;
 }
 .gc-empty .etitle { color: #e8eaf0; font-weight: 700; margin: 14px 0 6px; }
-.gc-empty .esub { font-size: 12.5px; font-family: var(--gc-mono); color: #6b7285; }
+.gc-empty .esub { font-size: 12.5px; font-family: var(--gc-mono); color: #8c99a8; }
 
 .gc-meta-line {
   font-family: var(--gc-mono); font-size: 12px; color: #98a0b5;
@@ -409,7 +260,7 @@ a { color: #eef0f6; }
 @keyframes gc-blink { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
 .gc-loading {
   display: flex; align-items: center; gap: 6px; padding: 22px 4px;
-  font-family: var(--gc-mono); font-size: 12px; color: #98a0b3;
+  font-family: var(--gc-mono); font-size: 12px; color: #a0acba;
 }
 .gc-loading i {
   width: 9px; height: 18px; margin-right: 2px; border-radius: 2px;
@@ -420,14 +271,14 @@ a { color: #eef0f6; }
 .gc-loading i:nth-child(3) { animation-delay: .36s; }
 
 .gc-footer {
-  color: #6b7285 !important; font-size: 12.5px; line-height: 1.8;
+  color: #8c99a8 !important; font-size: 12.5px; line-height: 1.8;
   border-top: 1px solid var(--gc-line); padding-top: 14px; margin-top: 22px;
 }
 
 @media (max-width: 860px) {
   .gc-thead { display: none; }
-  .gc-row, .gc-row.simple { grid-template-columns: 34px 116px minmax(0,1fr) auto; gap: 11px; }
-  .gc-row img { width: 116px; }
+  .gc-row, .gc-row.simple { grid-template-columns: 28px 100px minmax(0,1fr) auto; gap: 11px; }
+  .gc-row .gc-cover { width: 100px; }
   .gc-row .peak, .gc-row .delta { display: none; }
   .gc-row .pnum { font-size: 15px; }
   .gc-nav a:not(.gc-install) { display: none; }
@@ -448,7 +299,7 @@ a { color: #eef0f6; }
   .gc-nav { height: 54px; }
   .gc-install { padding: 7px 12px; font-size: 12px !important; }
   .gc-row, .gc-row.simple { grid-template-columns: 28px 104px minmax(0,1fr) auto; gap: 10px; padding: 7px 3px; }
-  .gc-row img { width: 104px; border-radius: 7px; }
+  .gc-row .gc-cover { width: 76px; }
   .gc-row .rank { font-size: 14px; }
   .gc-row .gname {
     font-size: 13.5px;
@@ -466,56 +317,47 @@ a { color: #eef0f6; }
   .gc-row .price-col .gc-tag .final { font-size: 11.5px; }
   .gc-row.simple .price-col { flex-direction: column; align-items: flex-end; gap: 2px; }
   .gc-row.simple .price-col .gc-strike { display: none; }
-  .gc-ticker { height: 30px; }
-  .gc-ticker .ti { font-size: 11px; padding: 0 14px; }
   .gc-section { font-size: 17px; }
   .gc-empty .ghost { font-size: 30px; }
   .gc-meta-line { font-size: 11px; }
   .gc-footer { font-size: 11.5px; }
 }
+
+.gc-row .rank { color: #a0acba !important; text-align: center; font: 600 15px var(--gc-mono); }
+.gc-row:nth-of-type(-n+3) .rank { color: var(--gc-gold) !important; }
+.gc-cover { width: 120px; aspect-ratio: 460/215; border-radius: 6px; overflow: hidden; display: grid; place-items: center; background: #202a35; }
+.gc-cover::before { content: "封面暂缺"; grid-area: 1/1; color: #a0acba; font-size: 11px; }
+.gc-row .gc-cover img { grid-area: 1/1; width: 100%; height: 100%; object-fit: cover; display: block; }
+.gc-row .gc-cover img[hidden] { display: none; }
+.gc-row > span:nth-child(3) { min-width: 0; }
+@media (max-width: 600px) {
+  [data-testid="stHorizontalBlock"]:has(.gc-h1) { flex-wrap: nowrap !important; align-items: center; }
+  [data-testid="stHorizontalBlock"]:has(.gc-h1) > [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+  [data-testid="stHorizontalBlock"]:has(.gc-h1) > [data-testid="stColumn"]:last-child { flex: 0 0 40px !important; min-width: 40px !important; width: 40px !important; }
+  .gc-overline { margin: 12px 0 6px; letter-spacing: 0; }
+  .gc-briefing { padding: 8px 0; }
+  [role="tablist"] { flex-wrap: nowrap !important; overflow-x: auto !important; border-radius: 0 !important; }
+  [role="tab"] { flex-shrink: 0; }
+  .gc-row, .gc-row.simple { grid-template-columns: 22px 76px minmax(0,1fr); gap: 4px 10px; padding: 12px 0; }
+  .gc-row .rank { grid-column: 1; grid-row: 1 / span 2; }
+  .gc-row .gc-cover { width: 76px; grid-column: 2; grid-row: 1 / span 2; }
+  .gc-row > span:nth-child(3) { grid-column: 3; grid-row: 1; }
+  .gc-row .pnum, .gc-row.simple .price-col { grid-column: 3; grid-row: 2; text-align: left; justify-content: flex-start; }
+  .gc-row .pnum::before { content: attr(data-label) " "; color: #a0acba; font-size: 11px; font-weight: 400; }
+  .gc-row .genre, .gc-section .sub { display: none; }
+  .gc-row .gname { overflow-wrap: anywhere; }
+  .gc-row.simple .price-col { flex-direction: row; align-items: center; }
+}
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gc-gold); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.gc-method { color: #a0acba; font-size: 12px; padding: 16px 0; line-height: 1.8; }
+.gc-method summary { cursor: pointer; }
 </style>
 """
 
 st.markdown(CSS, unsafe_allow_html=True)
-
-# ---------- 侧边实时数据卡 ----------
-
-
-@st.fragment(run_every="60s")
-def render_rails():
-    items, _err, _built = request_most_played()
-    if not items:  # 构建中/失败：侧卡占位，绝不阻塞页面其余部分
-        st.markdown(
-            '<div class="gc-rail left"><div class="rail-title">▍此刻在线 TOP 3</div>'
-            '<div class="rail-loading">正在同步…</div></div>'
-            '<div class="gc-rail right"><div class="rail-title">▍REALTIME STATS</div>'
-            '<div class="rail-loading">正在同步…</div></div>',
-            unsafe_allow_html=True,
-        )
-        return
-    total = sum(i.get("players") or 0 for i in items)
-    medals = ["var(--gc-gold)", "#d7e0f0", "#e89a6b"]
-    rows = "".join(
-        f'<a class="rrow" href="{_esc(i["url"])}" target="_blank">'
-        f'<span class="rnum" style="color:{medals[idx]}">{i["rank"]}</span>'
-        f'<img src="{_esc(i["image"])}" loading="lazy">'
-        f'<span class="rmeta">'
-        f'<span class="rname">{_esc(i["name"])}</span>'
-        f'<span class="rplayers">{_fmt(i.get("players"))} 人在线</span>'
-        f'</span></a>'
-        for idx, i in enumerate(items[:3])
-    )
-    t = cn_now()
-    st.markdown(
-        f'''
-<div class="gc-rail left"><div class="rail-title">▍此刻在线 TOP 3</div>{rows}</div>
-<div class="gc-rail right"><div class="rail-title">▍REALTIME STATS</div>
-  <div class="stat"><div class="big">{_fmt(total)}</div><div class="lbl">TOP100 总在线人数</div></div>
-  <div class="stat"><div class="big">{len(items)}</div><div class="lbl">监控游戏数</div></div>
-  <div class="stat"><div class="big">{t}</div><div class="lbl">数据更新时间</div></div>
-</div>''',
-        unsafe_allow_html=True,
-    )
 
 # 顶栏 + 跑马灯
 st.markdown(
@@ -530,7 +372,7 @@ st.markdown(
   <a href="https://store.steampowered.com/" target="_blank">商店</a>
   <a href="https://steamcommunity.com/" target="_blank">社区</a>
   <a href="https://store.steampowered.com/charts/" target="_blank">官方榜单</a>
-  <a class="gc-install" href="https://store.steampowered.com/about/" target="_blank"><span>安装 STEAM</span></a>
+
 </div></div>
 """,
     unsafe_allow_html=True,
@@ -539,52 +381,43 @@ st.markdown(
 # ---------- 数据 ----------
 
 
+def collect_board(fn):
+    started = time.time()
+    return fn(), started
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def load_top_sellers():
-    items = [it for it in steamdata.fetch_search(False) if it["price"]["final"]]
-    return [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    return collect_board(lambda: [it for it in steamdata.fetch_search() if it["price"]["final"]])
 
 
 @st.cache_data(ttl=120, show_spinner=False)
 def load_specials():
-    items = [it for it in steamdata.fetch_search(True) if it["price"]["final"]]
-    return [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    return collect_board(lambda: [it for it in steamdata.fetch_search(True) if it["price"]["final"]])
 
 
 @st.cache_data(ttl=120, show_spinner=False)
 def load_free_to_keep():
-    return [{**it, "rank": i + 1} for i, it in enumerate(steamdata.fetch_free_to_keep())]
+    return collect_board(steamdata.fetch_free_to_keep)
 
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_new_releases():
-    items = [it for it in steamdata.fetch_new_releases() if it["price"]["final"]]
-    return [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    return collect_board(lambda: [it for it in steamdata.fetch_new_releases() if it["price"]["final"]])
 
 
 @st.cache_data(ttl=120, show_spinner=False)
 def load_free_games():
-    items = [
-        it for it in steamdata.fetch_search(False, free=True)
-        if it["price"]["final"] and it["price"]["free"]  # 过滤混入的免费试玩付费游戏
-    ]
-    return [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    return collect_board(lambda: [it for it in steamdata.fetch_search(free=True)
+                                 if it["price"]["final"] and it["price"]["free"]])
 
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_epic_free():
-    return [{**it, "rank": i + 1} for i, it in enumerate(steamdata.fetch_epic_free())]
+    return collect_board(steamdata.fetch_epic_free)
 
 
 # ---------- HTML 渲染 ----------
-
-
-_CN_TZ = timezone(timedelta(hours=8))
-
-
-def cn_now() -> str:
-    """Cloud 服务器为 UTC，展示一律换算成北京时间。"""
-    return datetime.now(_CN_TZ).strftime("%H:%M:%S")
 
 
 def _esc(s):
@@ -623,50 +456,64 @@ ERROR_PANEL_TMPL = (
 MP_TTL = 60          # 数据新鲜期；过期即触发后台重建，旧数据继续展示
 MP_RETRY_COOLDOWN = 30  # 失败后的冷却期，防止限流风暴下反复硬撞
 
-_mp_lock = threading.Lock()
-_mp_state = {"status": "idle", "items": None, "error": None, "ts": 0.0, "built_at": None}
+@st.cache_resource
+def most_played_state():
+    # Streamlit rerun 会重建模块全局变量；后台锁与快照必须跨 rerun 共享。
+    return threading.Lock(), {"status": "idle", "items": None, "error": None,
+                              "ts": 0.0, "built_at": None, "source": "live"}
+
+
+_mp_lock, _mp_state = most_played_state()
 
 
 def _build_mp_thread():
     try:
+        started = time.time()
         items = steamdata.build_most_played()
         with _mp_lock:
             _mp_state.update(status="ready", items=items, error=None,
-                             ts=time.time(), built_at=None)
+                             ts=time.time(), built_at=started, source="live")
     except Exception as e:
         with _mp_lock:
             _mp_state.update(status="error", error=str(e), ts=time.time())
 
 
-def request_most_played() -> tuple[list | None, str | None, float | None]:
-    """返回 (items|None, error|None, built_at|None)；绝不阻塞。
+def _mp_snapshot(state):
+    # 数据与来源在同一把锁内一起读取，后台完成不能拼出不同版本的元信息。
+    meta = (steamdata.data_meta(state["built_at"], MP_TTL, state["source"], bool(state["error"]))
+            if state["built_at"] is not None else None)
+    return state["items"], state["error"], meta
 
-    built_at 非 None 表示这是磁盘缓存数据（进程冷启动的零等待首帧），
-    后台重建完成后自然替换为实时数据。
+
+def request_most_played() -> tuple[list | None, str | None, dict | None]:
+    """返回 (items|None, error|None, meta|None)；绝不阻塞。
+
+    built_at 是当前快照的真实采集时间；失败时保留旧快照和时间。
     """
     with _mp_lock:
         s = _mp_state
         age = time.time() - s["ts"]
         if s["status"] == "building":
-            return s["items"], None, s["built_at"]
+            return _mp_snapshot(s)
         if s["status"] == "ready" and age <= MP_TTL:
-            return s["items"], None, s["built_at"]
+            return _mp_snapshot(s)
         if s["status"] == "error" and age < MP_RETRY_COOLDOWN:
-            return None, s["error"], None
+            return _mp_snapshot(s)
         # idle / ready 过期 / error 冷却结束：先尝试磁盘缓存顶上，再起后台构建
         if s["items"] is None:
             cached, built_at = steamdata.load_cached_most_played()
             if cached:
-                s["items"], s["built_at"] = cached, built_at
+                s["items"], s["built_at"], s["source"] = cached, built_at, "disk"
         s["status"] = "building"
         threading.Thread(target=_build_mp_thread, daemon=True).start()
-        return s["items"], None, s["built_at"]
+        return _mp_snapshot(s)
 
 
 def kick_most_played_rebuild():
     """立即刷新按钮：重置状态，下个请求周期触发后台重建（页面不阻塞）。"""
     with _mp_lock:
-        _mp_state.update(status="idle", ts=0.0)
+        if _mp_state["status"] != "building":
+            _mp_state.update(status="idle", ts=0.0)
 
 
 EMPTY_HTML = (
@@ -700,7 +547,7 @@ def delta_html(it):
 
 
 def row_html(it, stats):
-    surge = (f'<span class="surge">🔥 +{it["surge"]}%</span>'
+    surge = (f'<span class="surge" title="最近30分钟均值对比此前2小时均值；采样缺口超过5分钟时不显示">+{it["surge"]}%</span>'
              if it.get("surge") else "")
     if not stats:
         # 价格类榜单：# | 封面 | 游戏（发售日期/类型）| 价格
@@ -708,16 +555,16 @@ def row_html(it, stats):
         sub = f'<span class="genre">{_esc(meta)}</span>' if meta else ""
         return (f'<a class="gc-row simple" href="{_esc(it["url"])}" target="_blank">'
                 f'<span class="rank">{it["rank"]}</span>'
-                f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=&quot;hidden&quot;">'
+                f'<span class="gc-cover" aria-hidden="true"><img src="{_esc(it["image"])}" alt="" loading="lazy" onerror="this.hidden=true"></span>'
                 f'<span><div class="gname">{_esc(it["name"])}{surge}</div>{sub}</span>'
                 f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
     genres = " / ".join(it.get("genres") or [])
     sub = (f'<span class="genre">{_esc(genres)}</span>' if genres else "")
     return (f'<a class="gc-row" href="{_esc(it["url"])}" target="_blank">'
             f'<span class="rank">{it["rank"]}</span>'
-            f'<img src="{_esc(it["image"])}" loading="lazy" onerror="this.style.visibility=&quot;hidden&quot;">'
+            f'<span class="gc-cover" aria-hidden="true"><img src="{_esc(it["image"])}" alt="" loading="lazy" onerror="this.hidden=true"></span>'
             f'<span><div class="gname">{_esc(it["name"])}{surge}</div>{sub}</span>'
-            f'<span class="pnum">{_fmt(it.get("players"))}</span>'
+            f'<span class="pnum" data-label="在线">{_fmt(it.get("players"))}</span>'
             f'<span class="peak">{_fmt(it.get("peak"))}</span>'
             f'{delta_html(it)}</a>')
 
@@ -736,100 +583,63 @@ def rows_html(items, title, sub, stats=False, query="", empty_html=EMPTY_HTML):
                 f'<span class="sub">{sub}</span></div>{body}</div>')
     if stats:
         head = ('<div class="gc-thead"><span class="ctr">排名</span><span>游戏</span>'
-                '<span></span><span class="r">当前在线</span><span class="r">今日峰值</span>'
-                '<span class="ctr">周变化</span></div>')
+                '<span></span><span class="r">当前在线</span><span class="r">官方峰值</span>'
+                '<span class="ctr" title="上周官方排名减去当前实时排名；人数未知时不计算">较上周排名</span></div>')
     else:
         head = ('<div class="gc-thead simple"><span class="ctr">排名</span><span>游戏</span>'
                 '<span></span><span class="r">价格</span></div>')
     body = "".join(row_html(it, stats) for it in items)
+    if stats:
+        body += ('<details class="gc-method"><summary>数据口径与缺失说明</summary>'
+                 '候选游戏来自 Steam 官方榜单，按已取得的实时在线人数排序。'
+                 '未知人数显示 — 并置后；周变化对比上周官方排名。'
+                 '官方峰值与当前在线的采集时点不同。异动比较最近30分钟与此前2小时的均值，'
+                 '样本覆盖不足或存在超过5分钟的缺口时不显示。</details>')
     return (f'<div class="gc-panel"><div class="gc-section">{title}'
             f'<span class="sub">{sub}</span></div>{head}{body}</div>')
 
 
-def updated_line():
-    t = cn_now()
-    return (f'<div class="gc-meta-line"><span class="dot"></span>'
-            f'更新于 {t} · 每 60 秒自动刷新</div>')
+def updated_line(updated_at, ttl=60, source="live", refresh_failed=False):
+    meta = steamdata.data_meta(updated_at, ttl, source, refresh_failed)
+    return f'<div class="gc-meta-line">{_esc(steamdata.data_status(meta))}</div>'
 
 
 # ---------- 头部（列内垂直居中） ----------
 
-head_l, head_r = st.columns([4, 1], vertical_alignment="center")
+head_l, head_r = st.columns([20, 1], vertical_alignment="center")
 with head_l:
-    st.markdown('<div class="gc-overline">Realtime Arena · 每 60 秒自动刷新</div>', unsafe_allow_html=True)
+    st.markdown('<div class="gc-overline">Steam 游戏数据 · 每 60 秒检查更新</div>', unsafe_allow_html=True)
     st.markdown('<div class="gc-h1">Steam 实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
 with head_r:
-    if st.button("↻ 立即刷新", use_container_width=True):
+    if st.button("↻", help="检查最新数据"):
         st.session_state["refreshing"] = True
-        st.cache_data.clear()
+        for loader in (load_top_sellers, load_specials, load_free_to_keep,
+                       load_new_releases, load_free_games, load_epic_free):
+            loader.clear()
         kick_most_played_rebuild()
         st.rerun()
 
 if st.session_state.pop("refreshing", False):
-    st.toast("正在后台刷新全部榜单，页面不会卡住；最热游玩一两分钟内就位", icon="🔄")
-
-render_rails()
-
-# ---------- 跑马灯资讯条 ----------
-
-
-def _safe(fn):
-    """跑马灯数据源容错：单个源失败不炸整个 fragment（Cloud 限流常态）。"""
-    try:
-        return fn()
-    except Exception:
-        return []
-
-
-@st.fragment(run_every="60s")
-def render_ticker():
-    parts = []
-    for i in _safe(load_top_sellers)[:4]:
-        parts.append(f"热销 #{i['rank']} <strong>{_esc(i['name'])}</strong> {_esc(i['price']['final'] or '')}")
-    for i in _safe(load_specials)[:2]:
-        if i["price"]["pct"]:
-            parts.append(f"特惠 {i['price']['pct']}% <strong>{_esc(i['name'])}</strong> {_esc(i['price']['final'])}")
-    ftk = _safe(load_free_to_keep)
-    for i in ftk[:3]:
-        parts.append(f"限时免费入库 <strong>{_esc(i['name'])}</strong>（原价 {_esc(i['price']['original'])}）")
-    if not ftk:
-        parts.append("限时免费入库 · 当前无活动，周末再多来看看")
-    for i in _safe(load_epic_free)[:2]:
-        parts.append(f"Epic {_esc(i['price']['final'])} <strong>{_esc(i['name'])}</strong> · {_esc(i.get('released') or '')}")
-    if not parts:
-        parts.append("正在同步 Steam 数据…")
-    seq = "".join(f'<span class="ti"><b>▮</b>{p}</span>' for p in parts)
-    st.markdown(
-        f'<div class="gc-ticker"><div class="gc-ticker-track">{seq}{seq}</div></div>',
-        unsafe_allow_html=True,
-    )
-
-
-render_ticker()
-
-# ---------- 今日速览条（聚合缓存数据，60s 原地更新） ----------
-
+    st.toast("已请求更新；采集完成后自动替换，失败时保留历史数据", icon="🔄")
 
 @st.fragment(run_every="60s")
 def render_briefing():
-    ftk = _safe(load_free_to_keep)   # _safe 内部已兜底，永不抛出
-    mp, _err, _built = request_most_played()
+    mp, _err, meta = request_most_played()
     if not mp:
         st.markdown('<div class="gc-briefing"><span class="bi">数据同步中…</span></div>',
                     unsafe_allow_html=True)
         return
-    b = steamdata.briefing_facts(mp, ftk)
+    b = steamdata.briefing_facts(mp, [])
     parts = []
-    if b["total_online"]:
-        parts.append(f'此刻 <b>{b["total_online"]:,}</b> 人在线')
-    for s in b["surges"]:
-        parts.append(f'🔥 <strong>{_esc(s["name"])}</strong> 在线 <b>+{s["pct"]}%</b>')
+    if b["games_with_players"]:
+        parts.append(f'榜单 Top {b["games_total"]} 在线合计 <b>{b["total_online"]:,}</b>')
+    if b["games_with_players"] < b["games_total"]:
+        parts.append(f'人数覆盖 {b["games_with_players"]}/{b["games_total"]} 款')
+    parts.append(f'<span title="{_esc(steamdata.data_status(meta))}">{"历史快照" if meta["stale"] else "有效采样"}</span>')
+    for s in ([] if meta["stale"] else b["surges"]):
+        parts.append(f'🔥 <strong>{_esc(s["name"])}</strong> 近30分钟 <b>+{s["pct"]}%</b>')
     if b["new_entries"]:
         parts.append(f'<b>{b["new_entries"]}</b> 款新上榜')
-    if b["ftk_count"]:
-        names = "、".join(_esc(n) for n in b["ftk_names"])
-        more = " 等" if b["ftk_count"] > 3 else ""
-        parts.append(f'🎁 限时免费进行中（{names}{more}）')
     if not parts:
         parts.append("数据同步中…")
     seq = "".join(f'<span class="bi">{p}</span>' for p in parts)
@@ -845,22 +655,16 @@ tab_played, tab_sellers, tab_specials, tab_new, tab_free, tab_ftk, tab_epic = st
 )
 
 
-def cached_line(built_at: float) -> str:
-    """磁盘缓存帧的更新行：诚实标注数据时间，说明正在后台刷新。"""
-    t = datetime.fromtimestamp(built_at, _CN_TZ).strftime("%H:%M:%S")
-    return (f'<div class="gc-meta-line"><span class="dot" style="background:var(--gc-gold);'
-            f'box-shadow:0 0 8px rgba(232,194,104,.7)"></span>'
-            f'缓存数据 · {t} · 后台刷新实时数据中…</div>')
-
-
 @st.fragment(run_every="60s")
 def render_most_played():
     q = st.text_input("筛选", key="q_played", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
     box = st.empty()
-    items, err, built_at = request_most_played()
+    items, err, meta = request_most_played()
     if items:
-        line = cached_line(built_at) if built_at else updated_line()
+        line = f'<div class="gc-meta-line">{_esc(steamdata.data_status(meta))}</div>'
+        if meta["stale"]:
+            items = [{**it, "surge": None, "spark": []} for it in items]
         box.markdown(
             line + rows_html(items, "最热游玩游戏", "TOP 100 · BY CURRENT PLAYERS", stats=True, query=q),
             unsafe_allow_html=True,
@@ -871,17 +675,18 @@ def render_most_played():
         box.markdown(LOADING_PANEL, unsafe_allow_html=True)
 
 
-def _board(fn, title, sub, query, stats=False, empty_html=EMPTY_HTML):
+def _board(fn, title, sub, query, stats=False, empty_html=EMPTY_HTML, ttl=120):
     """榜单 fragment 通用体：先渲染加载骨架，单个接口失败只影响本榜不炸整页。"""
     box = st.empty()
     box.markdown(LOADING_PANEL, unsafe_allow_html=True)
     try:
-        items = fn()
+        items, collected_at = fn()
+        items = [{**it, "rank": i + 1} for i, it in enumerate(items)]
     except Exception as e:
         box.markdown(ERROR_PANEL_TMPL.format(err=_esc(e)), unsafe_allow_html=True)
         return
     box.markdown(
-        updated_line() + rows_html(items, title, sub, stats=stats, query=query,
+        updated_line(collected_at, ttl) + rows_html(items, title, sub, stats=stats, query=query,
                                    empty_html=empty_html),
         unsafe_allow_html=True,
     )
@@ -891,7 +696,7 @@ def _board(fn, title, sub, query, stats=False, empty_html=EMPTY_HTML):
 def render_sellers():
     q = st.text_input("筛选", key="q_sellers", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
-    _board(load_top_sellers, "热门畅销商品", "TOP 50 · BY UNITS SOLD", q)
+    _board(load_top_sellers, "热门畅销商品", "STEAM TOP SELLERS", q)
 
 
 @st.fragment(run_every="60s")
@@ -912,7 +717,7 @@ def render_specials():
 def render_new():
     q = st.text_input("筛选", key="q_new", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
-    _board(load_new_releases, "新品上架", "TOP 30 · NEW RELEASES", q)
+    _board(load_new_releases, "新品上架", "TOP 30 · NEW RELEASES", q, ttl=600)
 
 
 @st.fragment(run_every="60s")
@@ -927,13 +732,13 @@ def render_epic():
     q = st.text_input("筛选", key="q_epic", placeholder="🔍 筛选游戏名…",
                       label_visibility="collapsed").strip().lower()
     _board(load_epic_free, "Epic 喜加一", "FREE @ EPIC · 每周轮换，即将开始的也预告",
-           q, empty_html=EMPTY_EPIC_HTML)
+           q, empty_html=EMPTY_EPIC_HTML, ttl=600)
 
 
-with tab_sellers:
-    render_sellers()
 with tab_played:
     render_most_played()
+with tab_sellers:
+    render_sellers()
 with tab_ftk:
     render_free_to_keep()
 with tab_specials:

@@ -155,9 +155,9 @@ def parse_search_rows(results_html: str) -> list[dict]:
         title = re.search(r'<span class="title">([^<]+)</span>', block)
         if not title:
             continue
-        pct = re.search(r'class="discount_pct">\s*(-?\d+)%', block)
-        orig = re.search(r'class="discount_original_price">\s*([^<]+?)\s*<', block)
-        fin = re.search(r'class="discount_final_price[^"]*">\s*([^<]+?)\s*<', block)
+        pct = re.search(r'class="[^"]*\bdiscount_pct\b[^"]*"[^>]*>\s*(-?\d+)%', block)
+        orig = re.search(r'class="[^"]*\bdiscount_original_price\b[^"]*"[^>]*>\s*([^<]+?)\s*<', block)
+        fin = re.search(r'class="[^"]*\bdiscount_final_price\b[^"]*"[^>]*>\s*([^<]+?)\s*<', block)
         img = re.search(r'<img[^>]+src="([^"]+capsule[^"]+?)"', block)
         tags = re.search(r'data-ds-tagids="\[([\d,]+)\]"', m.group(0))
         released = re.search(r'search_released[^>]*>\s*([^<]+?)\s*<', block)
@@ -394,7 +394,11 @@ def fetch_ccu(appid: int) -> int:
         f"{STEAM_API}/ISteamUserStats/GetNumberOfCurrentPlayers/v1/", params={"appid": appid}
     )
     r.raise_for_status()
-    return r.json()["response"].get("player_count", 0)
+    response = r.json()["response"]
+    count = response.get("player_count")
+    if response.get("result", 1) != 1 or type(count) is not int or count < 0:
+        raise ValueError(f"Steam 未返回有效在线人数：{appid}")
+    return count
 
 
 _detail_store: dict[int, tuple[float, dict | None]] = {}
@@ -517,6 +521,7 @@ def build_most_played(top_n: int = 100) -> list[dict]:
 
     官方 rank 是每日快照，与实时在线数有出入；实时榜单按当前在线重排。
     """
+    started = time.time()
     ranks = fetch_most_played()[:top_n]
 
     def safe(fn, *a):
@@ -541,7 +546,7 @@ def build_most_played(top_n: int = 100) -> list[dict]:
         name = detail.get("name")
         if not name:
             name = fetch_name_cached(appid)
-        last = r.get("last_week_rank", -1)
+        last = r.get("last_week_rank")
         items.append(
             {
                 "appid": appid,
@@ -552,19 +557,50 @@ def build_most_played(top_n: int = 100) -> list[dict]:
                 "price": detail.get("price"),
                 "players": ccu,
                 "peak": r.get("peak_in_game"),
-                "delta": (last - r["rank"]) if last > 0 else None,
+                "last_week_rank": last,
+                "delta": None,
                 "is_new": last == -1,
             }
         )
     items.sort(key=lambda it: it["players"] if it["players"] is not None else -1, reverse=True)
-    items = [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    if not any(it["players"] is not None for it in items):
+        raise RuntimeError("未取得任何有效在线人数，保留上一份榜单")
+    items = rank_most_played(items)
     HISTORY.sample(items)  # 24h 滚动采样：双端（FastAPI/Streamlit）共用同一份内存环
     for it in items:
         it["spark"] = HISTORY.spark(it["appid"])
         it["surge"] = surge_pct(it["appid"])
+        it["surge_ready"] = bool(_surge_window(it["appid"], time.time()))
     _persist_detail_store()  # 本轮全部详情落盘（并发下单条写有覆盖，此处兜底全量）
-    _dump_json(LAST_MP_LIVE, {"built_at": time.time(), "items": items})
+    _dump_json(LAST_MP_LIVE, {"built_at": started, "items": items})
     return items
+
+
+def rank_most_played(items: list[dict]) -> list[dict]:
+    """周变化统一为上周官方排名减去当前实时排名；未知人数不推算变化。"""
+    ranked = []
+    for rank, item in enumerate(items, 1):
+        last = item.get("last_week_rank")
+        delta = last - rank if last and last > 0 and item.get("players") is not None else None
+        ranked.append({**item, "rank": rank, "delta": delta,
+                       "is_new": last == -1})
+    return ranked
+
+
+def data_meta(updated_at: float, ttl: float, source="live", refresh_failed=False) -> dict:
+    """采集时间随数据保存；响应时间不能冒充数据更新时间。"""
+    now = time.time()
+    return {"updated_at": updated_at, "served_at": now, "ttl": ttl,
+            "age_seconds": max(0, int(now - updated_at)), "source": source,
+            "stale": refresh_failed or source == "disk" or now - updated_at > ttl,
+            "refresh_failed": refresh_failed}
+
+
+def data_status(meta: dict) -> str:
+    stamp = datetime.fromtimestamp(meta["updated_at"], timezone(timedelta(hours=8)))
+    state = ("刷新失败，显示历史数据" if meta["refresh_failed"] else
+             "历史缓存" if meta["stale"] else "已采集")
+    return f'{state} · {stamp:%m-%d %H:%M:%S} UTC+8'
 
 
 def load_cached_most_played(max_age: float = 26 * 3600):
@@ -579,8 +615,10 @@ def load_cached_most_played(max_age: float = 26 * 3600):
             continue
         built_at = float(data.get("built_at") or 0)
         items = data.get("items")
-        if items and now - built_at < max_age:
-            return items, built_at
+        if items and 0 <= now - built_at < max_age:
+            items = rank_most_played(items)
+            # 磁盘快照没有可验证的逐点采样时间，不能恢复成当前异动或趋势。
+            return [{**it, "surge": None, "spark": [], "surge_ready": False} for it in items], built_at
     return None, None
 
 
@@ -627,14 +665,15 @@ class HistoryRing:
             ring.append((now, players))
 
     def spark(self, appid: int, n: int = 40) -> list[int]:
-        ring = self.rings.get(appid)
-        if not ring:
+        points = self.points(appid)
+        if not points:
             return []
-        return downsample([p for _, p in ring], n)
+        return downsample([p for _, p in points], n)
 
     def points(self, appid: int) -> list[tuple[float, int]]:
         ring = self.rings.get(appid)
-        return [(ts, p) for ts, p in ring] if ring else []
+        now = time.time()
+        return [(ts, p) for ts, p in ring if 0 <= now - ts <= 86400] if ring else []
 
 
 HISTORY = HistoryRing()
@@ -644,15 +683,39 @@ HISTORY = HistoryRing()
 SURGE_RECENT, SURGE_BASELINE, SURGE_RATIO, SURGE_FLOOR = 30, 120, 1.3, 200
 
 
+def _surge_window(appid: int, now: float) -> list:
+    boundary = now - SURGE_RECENT * 60
+    start = boundary - SURGE_BASELINE * 60
+    points = [(ts, p) for ts, p in HISTORY.points(appid) if start <= ts <= now]
+    # 超过五分钟的缺口或窗口覆盖不足时不发布异动，避免把零星采样当成连续趋势。
+    if (not points or points[0][0] > start + 300 or now - points[-1][0] > 300
+            or any(b[0] - a[0] > 300 for a, b in zip(points, points[1:]))):
+        return []
+    base = [p for ts, p in points if ts < boundary]
+    rec = [p for ts, p in points if ts >= boundary]
+    if len(base) < SURGE_BASELINE // 5 or len(rec) < SURGE_RECENT // 5:
+        return []
+    return points
+
+
 def surge_pct(appid: int) -> int | None:
-    vals = [p for _, p in HISTORY.rings.get(appid, ())]
-    need = SURGE_RECENT + SURGE_BASELINE
-    if len(vals) < need:
+    now = time.time()
+    points = _surge_window(appid, now)
+    if not points:
         return None
-    base = vals[-need:-SURGE_RECENT]
-    rec = vals[-SURGE_RECENT:]
-    bmean = sum(base) / len(base)
-    rmean = sum(rec) / len(rec)
+    boundary = now - SURGE_RECENT * 60
+    start = boundary - SURGE_BASELINE * 60
+    def mean_between(left, right):
+        weighted, duration = 0, 0
+        for i, (ts, value) in enumerate(points):
+            end = points[i + 1][0] if i + 1 < len(points) else now
+            seconds = max(0, min(end, right) - max(ts, left))
+            weighted += value * seconds
+            duration += seconds
+        return weighted / duration if duration else 0
+
+    bmean = mean_between(start, boundary)
+    rmean = mean_between(boundary, now)
     if bmean < SURGE_FLOOR or rmean < bmean * SURGE_RATIO:
         return None
     return round((rmean / bmean - 1) * 100)
@@ -672,9 +735,11 @@ def briefing_facts(mp_items: list[dict], ftk_items: list[dict]) -> dict:
     )[:3]
     return {
         "total_online": sum(it.get("players") or 0 for it in mp_items),
+        "games_total": len(mp_items),
+        "games_with_players": sum(it.get("players") is not None for it in mp_items),
         "new_entries": sum(1 for it in mp_items if it.get("is_new")),
         "surges": surges,
         "ftk_count": len(ftk_items),
         "ftk_names": [it["name"] for it in ftk_items[:3]],
-        "sampling": sum(1 for it in mp_items if it.get("surge") is None),
+        "sampling": sum(not it.get("surge_ready", False) for it in mp_items),
     }
