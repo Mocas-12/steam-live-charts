@@ -14,6 +14,7 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, replace
 
 import httpx
 from fastapi import FastAPI
@@ -30,6 +31,15 @@ NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "").strip()  # ntfy.sh 主题名；留
 FTK_POLL_SECONDS = 300  # 看门狗轮询节奏（走同一份 TTL 缓存，不增加上游压力）
 
 
+@dataclass(frozen=True)
+class CacheEntry:
+    value: object
+    updated_at: float
+    stored_at: float
+    refresh_failed: bool = False
+    source: str = "live"
+
+
 class TTLCache:
     """带在途请求合并的 TTL 缓存；上游失败时回退过期数据。"""
 
@@ -40,26 +50,40 @@ class TTLCache:
         self.lock = asyncio.Lock()
 
     async def get(self, key, factory, force=False):
-        async with self.lock:
-            hit = self.data.get(key)
-            if hit and not force and time.monotonic() - hit[0] < self.ttl:
-                return hit[1]
-            if key not in self.inflight:
-                self.inflight[key] = asyncio.ensure_future(factory())
-            fut = self.inflight[key]
+        return (await self.get_entry(key, factory, force)).value
+
+    async def _fetch(self, key, factory):
+        started = time.time()
         try:
-            value = await fut
+            value = await factory()
+            entry = CacheEntry(value, started, time.monotonic())
+            async with self.lock:
+                self.data[key] = entry
+            return entry
         except Exception:
             async with self.lock:
-                self.inflight.pop(key, None)
-            if hit is not None:  # 网络抖动时用过期数据兜底
-                log.warning("上游 %s 抓取失败，回退过期缓存", key)
-                return hit[1]
+                hit = self.data.get(key)
+                if hit is not None:
+                    # 限制失败后的自动重试频率，但保留数据本身的采集时间。
+                    entry = replace(hit, refresh_failed=True, stored_at=time.monotonic())
+                    self.data[key] = entry
+                    log.warning("上游 %s 抓取失败，回退过期缓存", key)
+                    return entry
             raise
+        finally:
+            async with self.lock:
+                self.inflight.pop(key, None)
+
+    async def get_entry(self, key, factory, force=False):
         async with self.lock:
-            self.data[key] = (time.monotonic(), value)
-            self.inflight.pop(key, None)
-        return value
+            hit = self.data.get(key)
+            if hit and not force and time.monotonic() - hit.stored_at < self.ttl:
+                return hit
+            if key not in self.inflight:
+                self.inflight[key] = asyncio.create_task(self._fetch(key, factory))
+            fut = self.inflight[key]
+        # 一个请求断开不能取消其他请求共用的上游任务。
+        return await asyncio.shield(fut)
 
 
 charts_cache = TTLCache(REFRESH_SECONDS)
@@ -108,8 +132,13 @@ async def no_cache_static(request, call_next):
     return response
 
 
-def meta() -> dict:
-    return {"updated_at": int(time.time()), "ttl": REFRESH_SECONDS}
+def board_response(entry: CacheEntry, ttl: int, items=None) -> dict:
+    metadata = steamdata.data_meta(entry.updated_at, ttl, entry.source, entry.refresh_failed)
+    values = entry.value if items is None else items
+    if metadata["stale"]:
+        values = [{**it, "surge": None, "spark": [], "surge_ready": False}
+                  if "surge" in it else it for it in values]
+    return {"meta": metadata, "items": values}
 
 
 async def ftk_watchdog():
@@ -159,93 +188,93 @@ def to_thread(fn, *args):
     return lambda: asyncio.to_thread(fn, *args)
 
 
+async def search_board(key, fn, force=False, predicate=None, cache=None):
+    cache = search_cache if cache is None else cache
+    entry = await cache.get_entry(key, to_thread(fn), force=force)
+    items = [it for it in entry.value if predicate is None or predicate(it)]
+    items = [{**it, "rank": i + 1} for i, it in enumerate(items)]
+    return board_response(entry, cache.ttl, items)
+
+
 @app.get("/api/top-sellers")
 async def api_top_sellers(force: bool = False):
-    items = await search_cache.get("top_sellers", to_thread(steamdata.fetch_search, False), force=force)
-    items = [
-        {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
-    ]
-    return {"meta": meta(), "items": items}
+    return await search_board("top_sellers", steamdata.fetch_search, force,
+                              lambda it: it["price"]["final"])
 
 
 @app.get("/api/specials")
 async def api_specials(force: bool = False):
-    items = await search_cache.get("specials", to_thread(steamdata.fetch_search, True), force=force)
-    items = [
-        {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
-    ]
-    return {"meta": meta(), "items": items}
+    return await search_board("specials", lambda: steamdata.fetch_search(True), force,
+                              lambda it: it["price"]["final"])
 
 
 @app.get("/api/free-to-keep")
 async def api_free_to_keep(force: bool = False):
-    items = await search_cache.get("free_to_keep", to_thread(steamdata.fetch_free_to_keep), force=force)
-    items = [
-        {**it, "rank": i + 1}
-        for i, it in enumerate(items)
-        if it["price"]["pct"] == -100
-    ]
-    return {"meta": meta(), "items": items}
+    return await search_board("free_to_keep", steamdata.fetch_free_to_keep, force,
+                              lambda it: it["price"]["pct"] == -100)
 
 
 @app.get("/api/new-releases")
 async def api_new_releases(force: bool = False):
-    items = await new_cache.get("new_releases", to_thread(steamdata.fetch_new_releases), force=force)
-    items = [
-        {**it, "rank": i + 1} for i, it in enumerate(items) if it["price"]["final"]
-    ]
-    return {"meta": meta(), "items": items}
+    return await search_board("new_releases", steamdata.fetch_new_releases, force,
+                              lambda it: it["price"]["final"], cache=new_cache)
 
 
 @app.get("/api/free-games")
 async def api_free_games(force: bool = False):
-    items = await search_cache.get("free_games", to_thread(steamdata.fetch_search, False, True), force=force)
-    items = [
-        {**it, "rank": i + 1}
-        for i, it in enumerate(items)
-        if it["price"]["final"] and it["price"]["free"]  # 过滤混入的免费试玩付费游戏
-    ]
-    return {"meta": meta(), "items": items}
+    return await search_board("free_games", lambda: steamdata.fetch_search(free=True), force,
+                              lambda it: it["price"]["final"] and it["price"]["free"])
 
 
 @app.get("/api/epic-free")
 async def api_epic_free(force: bool = False):
-    items = await search_cache.get("epic_free", to_thread(steamdata.fetch_epic_free), force=force)
-    return {"meta": meta(), "items": [{**it, "rank": i + 1} for i, it in enumerate(items)]}
+    return await search_board("epic_free", steamdata.fetch_epic_free, force)
+
+
+async def refresh_most_played():
+    try:
+        await charts_cache.get_entry("most_played", to_thread(steamdata.build_most_played))
+    except Exception:
+        log.exception("最热榜后台刷新失败")
 
 
 @app.get("/api/most-played")
 async def api_most_played(force: bool = False):
-    # build_most_played = 官方榜 + 逐款实时在线(并发20) + 详情(磁盘预热,36h信任)
-    # + 社区页名字兜底(24h缓存) + 24h采样(steamdata.HISTORY)，
-    # 官方每日快照按当前在线重排；spark/surge 字段在数据层内嵌
+    async with charts_cache.lock:
+        hit = charts_cache.data.get("most_played")
+        building = "most_played" in charts_cache.inflight
     if not force:
-        async with charts_cache.lock:
-            hit = charts_cache.data.get("most_played")
-            fresh = hit is not None and time.monotonic() - hit[0] < charts_cache.ttl
-            building = "most_played" in charts_cache.inflight
-        if not fresh:
-            # 冷启动/重建中：立即返回磁盘缓存（标注 built_at），并确保后台在重建实时数据
-            cached, built_at = await asyncio.to_thread(steamdata.load_cached_most_played)
-            if cached:
-                if not building:
-                    asyncio.create_task(
-                        charts_cache.get("most_played", to_thread(steamdata.build_most_played))
-                    )
-                m = meta()
-                m["cached_built_at"] = int(built_at)
-                return {"meta": m, "items": cached}
-    items = await charts_cache.get("most_played", to_thread(steamdata.build_most_played), force=force)
-    return {"meta": meta(), "items": items}
+        if hit is not None:
+            if time.monotonic() - hit.stored_at >= charts_cache.ttl and not building:
+                asyncio.create_task(refresh_most_played())
+            return board_response(hit, charts_cache.ttl)
+        cached, built_at = await asyncio.to_thread(steamdata.load_cached_most_played)
+        if cached:
+            async with charts_cache.lock:
+                entry = charts_cache.data.setdefault(
+                    "most_played", CacheEntry(cached, built_at,
+                                             time.monotonic() - charts_cache.ttl, source="disk")
+                )
+            if not building:
+                asyncio.create_task(refresh_most_played())
+            return board_response(entry, charts_cache.ttl)
+    entry = await charts_cache.get_entry("most_played", to_thread(steamdata.build_most_played), force=force)
+    return board_response(entry, charts_cache.ttl)
 
 
 @app.get("/api/briefing")
 async def api_briefing():
-    """今日速览：聚合各榜单缓存（键与榜单端点一致，命中缓存零上游请求）。"""
-    mp = await charts_cache.get("most_played", to_thread(steamdata.build_most_played))
-    ftk = await search_cache.get("free_to_keep", to_thread(steamdata.fetch_free_to_keep))
-    facts = briefing_facts(mp, ftk)
-    facts["updated_at"] = int(time.time())
+    mp = await api_most_played()
+    facts = briefing_facts(mp["items"], [])
+    facts["meta"] = mp["meta"]
+    # 各数据源各自保留新鲜度；免费榜失败不能伪装成“没有活动”。
+    try:
+        ftk = await api_free_to_keep()
+        facts.update(ftk_count=len(ftk["items"]),
+                     ftk_names=[it["name"] for it in ftk["items"][:3]],
+                     free_to_keep_meta=ftk["meta"])
+    except Exception:
+        facts.update(ftk_count=None, free_to_keep_meta=None)
     return facts
 
 

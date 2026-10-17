@@ -123,9 +123,9 @@ class TestBriefingFacts:
 
     def test_aggregates_all_facts(self):
         mp = [
-            {"appid": 1, "name": "A", "url": "u1", "players": 1000, "is_new": False, "surge": 52},
-            {"appid": 2, "name": "B", "url": "u2", "players": 500, "is_new": True, "surge": None},
-            {"appid": 3, "name": "C", "url": "u3", "players": None, "is_new": True, "surge": 10},
+            {"appid": 1, "name": "A", "url": "u1", "players": 1000, "is_new": False, "surge": 52, "surge_ready": True},
+            {"appid": 2, "name": "B", "url": "u2", "players": 500, "is_new": True, "surge": None, "surge_ready": True},
+            {"appid": 3, "name": "C", "url": "u3", "players": None, "is_new": True, "surge": 10, "surge_ready": True},
             {"appid": 4, "name": "D", "url": "u4", "players": 200, "is_new": False, "surge": None},
         ]
         ftk = [{"name": "X"}, {"name": "Y"}, {"name": "Z"}, {"name": "W"}]
@@ -136,7 +136,7 @@ class TestBriefingFacts:
         assert b["ftk_names"] == ["X", "Y", "Z"]  # 最多 3 个名字
         assert [s["pct"] for s in b["surges"]] == [52, 10]  # 按涨幅降序
         assert b["surges"][0]["name"] == "A"
-        assert b["sampling"] == 2  # surge=None 的两款还在采样积累中
+        assert b["sampling"] == 1  # B 已完成采样且没有异动，仅 D 仍在积累。
 
     def test_empty_everything(self):
         b = briefing_facts([], [])
