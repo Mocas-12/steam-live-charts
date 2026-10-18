@@ -1,15 +1,5 @@
 /* Steam 实时游戏榜单 —— 前端逻辑：tab 切换 + 60s 自动刷新 */
 
-const API = {
-  "top-sellers": "/api/top-sellers",
-  "most-played": "/api/most-played",
-  "free-to-keep": "/api/free-to-keep",
-  "specials": "/api/specials",
-  "new-releases": "/api/new-releases",
-  "free-games": "/api/free-games",
-  "epic-free": "/api/epic-free",
-};
-
 /* 榜单名白名单：location.hash / DOM dataset 等外部输入的唯一净化入口。
    逐字面量 case 等值匹配（标准允许列表形态），tab 名与 API 路径都只能
    是编译期常量，后续 URL 与 CSS 选择器拼接不再携带任何外部输入。 */
@@ -319,21 +309,8 @@ function updateMeta() {
 
 /* ---------- 数据加载 ---------- */
 
-function resolveApiUrl(tab) {
-  switch (tab) {
-    case "most-played": return "/api/most-played";
-    case "top-sellers": return "/api/top-sellers";
-    case "free-to-keep": return "/api/free-to-keep";
-    case "specials": return "/api/specials";
-    case "new-releases": return "/api/new-releases";
-    case "free-games": return "/api/free-games";
-    case "epic-free": return "/api/epic-free";
-    default: return "/api/most-played";
-  }
-}
-
 async function load(rawTab, { silent = false, force = false } = {}) {
-  // 外部输入先过字面量白名单净化：非榜单名直接拒绝，URL 由常量前缀 + 常量键拼接
+  // 外部输入先过字面量白名单净化：非榜单名直接拒绝，URL 由常量前缀 + 白名单键拼接
   const tab = resolveTab(rawTab);
   if (tab === null) return;
   if (state.loading[tab]) return;
@@ -341,7 +318,7 @@ async function load(rawTab, { silent = false, force = false } = {}) {
   if (!silent) $(`#list-${tab}`).innerHTML = skeletonHtml();
   $("#live-dot").style.background = "var(--link)";
   try {
-    const res = await fetch(resolveApiUrl(tab) + (force ? "?force=1" : ""), { cache: "no-store" });
+    const res = await fetch("/api/" + tab + (force ? "?force=1" : ""), { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     state.data[tab] = data.items;

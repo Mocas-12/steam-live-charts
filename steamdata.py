@@ -92,7 +92,7 @@ def price_from_overview(po: dict | None, is_free: bool) -> dict | None:
         return None
     pct = po.get("discount_percent") or 0
     initial = po.get("initial")
-    final = _clean_price(po.get("final_formatted") or "") or _clean_price(f"¥{po.get('final', 0) / 100}")
+    final = _clean_price(po.get("final_formatted") or "") or _clean_price(f"¥{(po.get('final') or 0) / 100}")
     return {
         "free": False,
         "final": final,
