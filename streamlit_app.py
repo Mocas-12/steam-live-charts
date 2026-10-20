@@ -63,41 +63,20 @@ body, .stApp, p {
 a { color: #e8edf2; }
 .stMarkdown a, .stMarkdown a * { text-decoration: none !important; }
 
-/* 顶栏 */
+/* 品牌栏只保留轻薄材质，字标不再叠加图标、分色和状态徽章。 */
 .gc-nav {
-  background: linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.015)), rgba(27,34,44,.56); margin: 16px 0 4px; padding: 0 18px;
-  border: 1px solid var(--gc-glass-edge); border-radius: 20px;
-  height: 60px; display: flex; align-items: center;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 28px rgba(0,0,0,.16);
-  backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
+  margin: 0 0 20px; padding: 0;
+  height: 56px; display: flex; align-items: center;
+  background: rgba(16,20,25,.12); border-bottom: 1px solid rgba(255,255,255,.05);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
 }
-.gc-nav-inner { display: flex; align-items: center; gap: 24px; width: 100%; }
-.gc-logo { display: flex; align-items: center; gap: 10px; }
-.gc-logo-mark {
-  width: 12px; height: 12px; border-radius: 4px;
-  background: linear-gradient(135deg, var(--gc-gold-2), var(--gc-gold));
-}
-.gc-logo-word { font-size: 16px; font-weight: 800; letter-spacing: .5px; color: #fff !important; }
-.gc-logo-word span { color: var(--gc-gold) !important; }
-.gc-logo-sub {
-  font-family: var(--gc-mono); font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
-  color: var(--gc-ice) !important; border: 1px solid rgba(125,215,255,.35); padding: 3px 9px;
-  border-radius: 99px;
-}
-.gc-nav .spacer { margin-right: auto; }
-.gc-nav a { color: #a0acba; text-decoration: none; font-size: 13px; font-weight: 500; padding: 7px 12px; border-radius: 8px; }
-.gc-nav a:hover { color: #e8eaf0; background: rgba(255,255,255,.05); }
-/* 标题区 */
-.gc-overline {
-  font-family: var(--gc-mono); font-size: 11px; letter-spacing: .2px;
-  color: #8c99a8 !important; text-transform: none; margin: 20px 0 8px;
-}
-.gc-h1 {
-  font-size: clamp(26px, 3vw, 32px); font-weight: 700; letter-spacing: -.5px;
-  line-height: 1.08; color: #fff !important;
-}
-.gc-h1 em {
-  font-style: normal; color: inherit;
+.gc-nav-inner { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.gc-nav .gc-logo { color: #d3dae3 !important; font-size: 16px; font-weight: 600; letter-spacing: -.3px; }
+.gc-nav .gc-about { color: #a0acba; font-size: 13px; padding: 8px 0 8px 16px; }
+.gc-nav .gc-about:hover { color: #e8edf2; }
+h1.gc-h1 {
+  font-size: clamp(24px, 3vw, 28px); font-weight: 600; letter-spacing: -.5px;
+  line-height: 1.35; color: #eef1f5 !important; margin: 0; padding: 0;
 }
 @keyframes gc-pulse { 50% { opacity: .3; } }
 
@@ -309,9 +288,7 @@ a { color: #e8edf2; }
   .gc-row .gc-cover { width: 100px; }
   .gc-row .peak, .gc-row .delta { display: none; }
   .gc-row .pnum { font-size: 15px; }
-  .gc-nav a:not(.gc-install) { display: none; }
   [data-baseweb="tab-list"], [role="tablist"] { flex-wrap: wrap !important; overflow-x: visible !important; }
-  .gc-h1 { font-size: 24px; }
   .stTextInput { max-width: 100%; }
   .stTextInput input { font-size: 16px; } /* ≥16px 防 iOS 聚焦自动放大 */
   [role="tab"] { padding: 8px 12px; }
@@ -325,7 +302,6 @@ a { color: #e8edf2; }
 @media (max-width: 480px) {
   .block-container { padding: 0 .9rem 1.6rem; }
   .gc-nav { height: 54px; }
-  .gc-install { padding: 7px 12px; font-size: 12px !important; }
   .gc-row, .gc-row.simple { grid-template-columns: 28px 104px minmax(0,1fr) auto; gap: 10px; padding: 7px 3px; }
   .gc-row .gc-cover { width: 76px; }
   .gc-row .rank { font-size: 14px; }
@@ -359,7 +335,6 @@ a { color: #e8edf2; }
 .gc-row .gc-cover img[hidden] { display: none; }
 .gc-row > span:nth-child(3) { min-width: 0; }
 @media (max-width: 600px) {
-  .gc-overline { margin: 12px 0 6px; letter-spacing: 0; }
   .gc-briefing { padding: 8px 0; }
   [role="tablist"] { flex-wrap: nowrap !important; overflow-x: auto !important; border-radius: 18px !important; }
   [role="tab"] { flex-shrink: 0; }
@@ -387,18 +362,10 @@ st.markdown(CSS, unsafe_allow_html=True)
 # 顶栏
 st.markdown(
     """
-<div class="gc-nav"><div class="gc-nav-inner">
-  <span class="gc-logo">
-    <span class="gc-logo-mark"></span>
-    <span class="gc-logo-word">GAME<span>CHARTS</span></span>
-    <span class="gc-logo-sub">LIVE</span>
-  </span>
-  <span class="spacer"></span>
-  <a href="https://store.steampowered.com/" target="_blank">商店</a>
-  <a href="https://steamcommunity.com/" target="_blank">社区</a>
-  <a href="https://store.steampowered.com/charts/" target="_blank">官方榜单</a>
-
-</div></div>
+<nav class="gc-nav" aria-label="主导航"><div class="gc-nav-inner">
+  <a class="gc-logo" href="/">Gamecharts</a>
+  <a class="gc-about" href="#about">关于</a>
+</div></nav>
 """,
     unsafe_allow_html=True,
 )
@@ -633,10 +600,9 @@ def updated_line(updated_at, ttl=60, source="live", refresh_failed=False):
 
 head_l, head_r = st.columns([20, 1], vertical_alignment="center")
 with head_l:
-    st.markdown('<div class="gc-overline">Steam 游戏数据 · 每 60 秒检查更新</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gc-h1">Steam 实时游戏<em>榜单</em></div>', unsafe_allow_html=True)
+    st.markdown('<h1 class="gc-h1">Steam 游戏榜单</h1>', unsafe_allow_html=True)
 with head_r:
-    if st.button("↻", help="检查最新数据"):
+    if st.button("↻", help="检查最新数据；每 60 秒自动检查一次"):
         st.session_state["refreshing"] = True
         for loader in (load_top_sellers, load_specials, load_free_to_keep,
                        load_new_releases, load_free_games, load_epic_free):
@@ -776,7 +742,7 @@ with tab_epic:
     render_epic()
 
 st.markdown(
-    '<div class="gc-footer">本页面为非官方第三方工具，与 Valve Corporation 及 Epic Games 无从属关系。'
+    '<div class="gc-footer" id="about">本页面为非官方第三方工具，与 Valve Corporation 及 Epic Games 无从属关系。'
     "榜单数据实时来自 Steam 与 Epic 商城官方公开接口，游戏名称、图片与价格版权归 Valve、Epic 及相应开发商所有。</div>",
     unsafe_allow_html=True,
 )
