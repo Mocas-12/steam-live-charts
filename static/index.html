@@ -12,34 +12,23 @@
 </head>
 <body>
 
-<nav class="topnav">
+<nav class="topnav" aria-label="主导航">
   <div class="wrap topnav-inner">
-    <a class="logo" href="/">
-      <span class="logo-mark"></span>
-      <span class="logo-word">GAME<span>CHARTS</span></span>
-      <span class="logo-sub"><span>LIVE</span></span>
-    </a>
-    <div class="nav-links">
-      <a href="https://store.steampowered.com/" target="_blank">商店</a>
-      <a href="https://steamcommunity.com/" target="_blank">社区</a>
-      <a href="https://store.steampowered.com/charts/" target="_blank">官方榜单</a>
-      <a href="https://help.steampowered.com/" target="_blank">客服</a>
-    </div>
-
+    <a class="logo" href="#top">Gamecharts</a>
+    <a class="about-link" href="#about">关于</a>
   </div>
 </nav>
 
 <header class="page-head">
   <div class="wrap">
-    <div class="overline">Steam 游戏数据 · 每 60 秒检查更新</div>
     <div class="head-top">
-      <h1>Steam 实时游戏<em>榜单</em></h1>
+      <h1 id="top">Steam 游戏榜单</h1>
       <div class="head-meta">
         <span class="live-dot" id="live-dot"></span>
         <span id="updated-at">正在加载…</span>
         <span class="sep">/</span>
         <span id="countdown">--s</span>
-        <button class="refresh-btn" id="refresh-btn" title="立即刷新"><span>↻ 刷新</span></button>
+        <button class="refresh-btn" id="refresh-btn" title="检查最新数据；每 60 秒自动检查一次"><span>↻ 刷新</span></button>
       </div>
     </div>
     <div class="toolbar">
@@ -105,7 +94,7 @@
   </section>
 </main>
 
-<footer>
+<footer id="about">
   <div class="wrap footer-inner">
     <p>本页面为非官方第三方工具，与 Valve Corporation 及 Epic Games 无从属关系。榜单数据实时来自 Steam 与 Epic 商城官方公开接口，游戏名称、图片与价格版权归 Valve、Epic 及相应开发商所有。</p>
     <p class="footer-links">
