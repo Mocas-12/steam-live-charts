@@ -562,3 +562,5 @@ h1 { text-wrap: balance; }
 
 .nameline .gname { flex:1; min-width:0; }
 .nameline .star { order:2; }
+
+.delta.new { font-size:12px; }
