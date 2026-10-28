@@ -214,14 +214,14 @@ def row_html(it, stats):
         sub = f'<span class="genre">{_esc(meta)}</span>' if meta else ""
         return (f'<a class="gc-row simple" href="{_esc(it["url"])}" target="_blank">'
                 f'<span class="rank">{it["rank"]}</span>'
-                f'<span class="gc-cover" aria-hidden="true"><img src="{_esc(it["image"])}" alt="" loading="lazy" onerror="this.hidden=true"></span>'
+                f'<span class="gc-cover" aria-hidden="true"><img src="{_esc(it["image"])}" alt="" loading="lazy"></span>'
                 f'<span><div class="gname">{_esc(it["name"])}{surge}</div>{sub}</span>'
                 f'<span class="price-col">{price_row_html(it.get("price"))}</span></a>')
     genres = " / ".join(it.get("genres") or [])
     sub = (f'<span class="genre">{_esc(genres)}</span>' if genres else "")
     return (f'<a class="gc-row" href="{_esc(it["url"])}" target="_blank">'
             f'<span class="rank">{it["rank"]}</span>'
-            f'<span class="gc-cover" aria-hidden="true"><img src="{_esc(it["image"])}" alt="" loading="lazy" onerror="this.hidden=true"></span>'
+            f'<span class="gc-cover" aria-hidden="true"><img src="{_esc(it["image"])}" alt="" loading="lazy"></span>'
             f'<span><div class="gname">{_esc(it["name"])}{surge}</div>{sub}</span>'
             f'<span class="pnum" data-label="在线">{_fmt(it.get("players"))}</span>'
             f'<span class="peak">{_fmt(it.get("peak"))}</span>'

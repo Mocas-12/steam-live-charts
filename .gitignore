@@ -4,3 +4,4 @@ __pycache__/
 cache/details_live.json
 cache/last_most_played.json
 .mimosa/
+.hallmark/

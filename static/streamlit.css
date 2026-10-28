@@ -146,7 +146,7 @@ h1.gc-h1 {
   display: inline-flex; gap: 3px;
   background: linear-gradient(135deg, var(--stream-tone-20), var(--stream-tone-21)), var(--gc-glass); border: 1px solid var(--gc-glass-edge);
   border-radius: 18px; padding: 5px;
-  box-shadow: inset 0 1px 0 var(--stream-tone-22), 0 8px 28px var(--stream-tone-23);
+  box-shadow: none;
   backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
 }
 [role="tab"] {
@@ -253,7 +253,7 @@ h1.gc-h1 {
 .gc-row .delta .new {
   display: inline-block; background: var(--stream-tone-35);
   border: 1px solid var(--stream-tone-36); color: var(--gc-gold) !important;
-  font-size: 10px; padding: 2px 8px; border-radius: 99px; letter-spacing: 0;
+  font-size: 12px; padding: 2px 8px; border-radius: 99px; letter-spacing: 0;
 }
 
 /* 价格类榜单的横排（带价格列） */
@@ -353,7 +353,11 @@ h1.gc-h1 {
 .gc-row:nth-of-type(-n+3) .rank { color: var(--gc-gold) !important; }
 .gc-cover { width: 120px; aspect-ratio: 460/215; border-radius: 6px; overflow: hidden; display: grid; place-items: center; background: var(--stream-tone-40); }
 .gc-cover::before { content: "封面暂缺"; grid-area: 1/1; color: var(--stream-tone-6); font-size: 11px; }
-.gc-row .gc-cover img { grid-area: 1/1; width: 100%; height: 100%; object-fit: cover; display: block; }
+.gc-row .gc-cover img { grid-area: 1/1; width: 100%; height: 100%; object-fit: cover; display: block; position: relative; }
+.gc-row .gc-cover img::after {
+  content: "封面暂缺"; position: absolute; inset: 0; display: grid; place-items: center;
+  background: var(--stream-tone-40); color: var(--stream-tone-6); font-size: 12px;
+}
 .gc-row .gc-cover img[hidden] { display: none; }
 .gc-row > span:nth-child(3) { min-width: 0; }
 @media (max-width: 600px) {
@@ -422,3 +426,6 @@ h1.gc-h1 { text-wrap: balance; }
 
 [role=tab]:active, button:active { transform:translateY(1px); }
 .gc-thead { font-family:var(--gc-font); }
+
+:focus-visible { outline: 2px solid var(--gc-gold) !important; outline-offset: 3px; transition: none; }
+section.stMain:focus-visible { outline-offset: -3px; }
